@@ -28,6 +28,9 @@ var conformanceLexer = lexer.MustStateful(lexer.Rules{
 	},
 	"ExprString": {
 		{"ExprEscaped", `\\.`, nil},
+		// Leftover `\` after Escaped fails (EOS, or `\`+newline). Without this
+		// the generated AnyCharNotNL matcher used to panic at EOS.
+		{"ExprBackslash", `\\`, nil},
 		{"ExprStringEnd", `"`, lexer.Pop()},
 		{"Expr", `\${`, lexer.Push("Expr")},
 		{"ExprChar", `[^$"\\]+`, nil},
@@ -203,6 +206,13 @@ func testLexer(t *testing.T, lex lexer.Definition) {
 			{"Ident", "900"},
 			{"Whitespace", " "},
 			{"Ident", "world"},
+		}},
+		{"EscapedTrailingBackslashAtEOS", `EXPRTEST:"C:\Windows\`, []token{
+			{"ExprString", "\""},
+			{"ExprChar", "C:"},
+			{"ExprEscaped", "\\W"},
+			{"ExprChar", "indows"},
+			{"ExprBackslash", "\\"},
 		}},
 	}
 	symbols := lexer.SymbolsByRune(lex)

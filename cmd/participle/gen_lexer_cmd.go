@@ -306,6 +306,7 @@ func generateRegexMatch(w io.Writer, lexerName, name, pattern string) error {
 			fmt.Fprintf(w, "return p+n\n")
 
 		case syntax.OpAnyChar: // matches any character
+			fmt.Fprintf(w, "if p >= len(s) { return -1 }\n")
 			fmt.Fprintf(w, "var n int\n")
 			fmt.Fprintf(w, "if s[p] < utf8.RuneSelf {\n")
 			fmt.Fprintf(w, "  n = 1\n")
@@ -396,6 +397,9 @@ func generateRegexMatch(w io.Writer, lexerName, name, pattern string) error {
 
 // This exists because of https://github.com/golang/go/issues/31666
 func decodeRune(w io.Writer, offset string, rn string, n string) {
+	// EOS must be a failed match, not a panic. Generated `\\.` (AnyCharNotNL)
+	// used to index s[p] with no length check when the last byte was `\`.
+	fmt.Fprintf(w, "if %s >= len(s) { return -1 }\n", offset)
 	fmt.Fprintf(w, "if s[%s] < utf8.RuneSelf {\n", offset)
 	fmt.Fprintf(w, "  %s, %s = rune(s[%s]), 1\n", rn, n, offset)
 	fmt.Fprintf(w, "} else {\n")
