@@ -30,6 +30,7 @@ type GeneratedParserContext struct {
 	Lex           *lexer.PeekingLexer
 	parserOpts    *parserOptions
 	allowTrailing bool
+	concat        *strings.Builder // see AddToString
 
 	err generatedError
 }
@@ -62,13 +63,35 @@ func (c *GeneratedParserContext) InvokeCustom(index int) (interface{}, bool) {
 	return results[0].Interface(), true
 }
 
+// AddToString appends add to *dest. Generated code calls it once per captured token, so a capture
+// repeated over a run of tokens appends to the same string many times; plain concatenation copies
+// the whole string on each call, which is quadratic in the length of the run.
+//
+// The context keeps one strings.Builder holding the last string it produced. When *dest still
+// equals that string, add is appended to the builder in place (amortised growth) and *dest takes
+// the longer string; otherwise the builder restarts from *dest. The builder only ever writes past
+// the end of strings it has handed out, so every string held elsewhere (a branch copy, a field
+// assigned earlier) keeps its value. The equality check costs O(1) in the common case because the
+// runtime compares equal pointers without reading the bytes.
 func (c *GeneratedParserContext) AddToString(dest *string, add string) {
 	// Using assignment instead of concatenation is faster for empty strings (usual case), even with the extra check
 	if *dest == "" {
 		*dest = add
-	} else {
-		*dest += add
+		return
 	}
+	if add == "" {
+		return
+	}
+	if c.concat == nil {
+		c.concat = &strings.Builder{}
+	}
+	if c.concat.String() != *dest {
+		c.concat.Reset()
+		c.concat.Grow(len(*dest) + len(add))
+		c.concat.WriteString(*dest)
+	}
+	c.concat.WriteString(add)
+	*dest = c.concat.String()
 }
 
 // generatedError encapsulates error handling state within a generated parser.

@@ -1,6 +1,7 @@
 package testgen
 
 import (
+	"runtime"
 	"strings"
 	"testing"
 
@@ -247,4 +248,36 @@ func BenchmarkCombinedParser_ParsingOnly(b *testing.B) {
 		peeking.LoadCheckpoint(checkpoint)
 		_, _ = combinedParser.ParseFromLexer(peeking)
 	}
+}
+
+// A long run of captures into one string field must cost linear memory in the generated parser.
+// Quadratic concatenation allocates about 16 times the bytes when the run is 4 times longer.
+func TestCombinedParser_LongStringCaptureRun(t *testing.T) {
+	original := participle.MaxIterations
+	participle.MaxIterations = 1 << 20
+	defer func() { participle.MaxIterations = original }()
+
+	parseRun := func(n int) (Strings, uint64) {
+		in := "str" + strings.Repeat(` "ab"`, n)
+		var before, after runtime.MemStats
+		runtime.GC()
+		runtime.ReadMemStats(&before)
+		out, err := combinedParser.ParseString("", in)
+		runtime.ReadMemStats(&after)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(out.Features))
+		native, err := combinedParser.ParseString("", in, participle.SkipGeneratedParser())
+		require.NoError(t, err)
+		require.Equal(t, native.Features, out.Features)
+		return out.Features[0].(Strings), after.TotalAlloc - before.TotalAlloc
+	}
+
+	const n = 1 << 12
+	short, shortBytes := parseRun(n)
+	long, longBytes := parseRun(4 * n)
+	require.Equal(t, strings.Repeat("ab", n), short.Quoted)
+	require.Equal(t, strings.Repeat("ab", 4*n), long.Quoted)
+	ratio := float64(longBytes) / float64(shortBytes)
+	require.True(t, ratio < 8, "allocated bytes %d for %d tokens, %d for %d tokens (ratio %.1f)",
+		shortBytes, n, longBytes, 4*n, ratio)
 }
