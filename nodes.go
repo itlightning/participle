@@ -232,6 +232,11 @@ func (s *strct) Generate(state generatorState, gen *codeGenerator) {
 		gen.statement(`}`)
 	} else {
 		// Used only once, inline the body to avoid call overhead
+		if gen.readLimitChecks && state.errorLabel != nil {
+			gen.statement(`if c.OverTokenReadLimit() {`)
+			gen.gotoLabelIndent(state.errorLabel, 1)
+			gen.statement(`}`)
+		}
 		childState := state
 		childState.target = variable
 		childState.captureSink = nil

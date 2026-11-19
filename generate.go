@@ -55,10 +55,10 @@ var ErrTokenReadLimit = errors.New("token read limit exceeded")
 
 // OverTokenReadLimit reports whether the parse has read more tokens than TokenReadLimit allows,
 // and sets a parse error when it has. Parsers generated with GenerateTokenReadLimitChecks call it
-// on entry to every production, so once over the limit every production fails at once and the
-// parse unwinds through the ordinary error path. Between two production entries a production
-// only runs its own loops, each of which reads a bounded number of tokens per token consumed, so
-// past the limit the parse reads at most a constant times the remaining input before it stops.
+// on entry to every struct of the grammar, inlined or not, so once over the limit every struct
+// fails at once and the parse unwinds through the ordinary error path. Between two struct entries
+// generated code only matches tokens, each test either consuming its token or ending its loop,
+// so past the limit the parse stops within one run of tokens.
 func (c *GeneratedParserContext) OverTokenReadLimit() bool {
 	if c.Lex.Reads() <= c.readLimit {
 		return false
