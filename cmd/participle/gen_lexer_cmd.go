@@ -152,6 +152,13 @@ func orderRules(rules lexer.Rules) []orderedRule {
 	return orderedRules
 }
 
+// uncountedLoopSpan is the longest loop span a counting matcher does not add to its work. Short
+// spans are almost every loop on ordinary text (words, whitespace runs), and skipping the memory
+// add for them is most of what keeps counting cheap. Leaving them out keeps the count a bound:
+// one rule attempt runs a fixed number of loops, so the uncounted work per attempt is at most a
+// constant, as the work outside loops already is, and a rescan of a long run is still counted.
+const uncountedLoopSpan = 16
+
 // generateRegexMatch writes the matcher for one rule. With countWork the matcher takes a work
 // counter and adds to it the bytes its repetition loops step over (see lexer.WorkLimiter); a
 // backreference rule runs the regexp package and counts nothing.
@@ -363,6 +370,7 @@ func generateRegexMatch(w io.Writer, lexerName, name, pattern string, countWork 
 			if countWork {
 				// A loop advances p by each repetition, so the bytes it stepped over are its
 				// end minus its start: one addition per loop instead of one per repetition.
+				// Spans of uncountedLoopSpan bytes or fewer are not added (see there).
 				fmt.Fprintf(w, "start := p\n")
 			}
 			if re.Op == syntax.OpPlus {
@@ -372,7 +380,7 @@ func generateRegexMatch(w io.Writer, lexerName, name, pattern string, countWork 
 			if countWork {
 				fmt.Fprintf(w, "if np := l%d(s, p); np == -1 { break } else { p = np }\n", reid(re.Sub0[0]))
 				fmt.Fprintf(w, "}\n")
-				fmt.Fprintf(w, "*work += p - start\n")
+				fmt.Fprintf(w, "if n := p - start; n > %d { *work += n }\n", uncountedLoopSpan)
 			} else {
 				fmt.Fprintf(w, "if np := l%d(s, p); np == -1 { return p } else { p = np }\n", reid(re.Sub0[0]))
 				fmt.Fprintf(w, "}\n")

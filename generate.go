@@ -46,21 +46,22 @@ func NewGeneratedParserContext[G any](
 	}
 }
 
-// ErrReadLimit is wrapped by the error a generated parser returns when its lexer went over the
-// limit set with lexer.PeekingLexer.SetReadLimit.
-var ErrReadLimit = errors.New("token read limit exceeded")
+// ErrStepLimit is wrapped by the error a generated parser returns when its lexer went over the
+// limit set with lexer.PeekingLexer.SetStepLimit.
+var ErrStepLimit = errors.New("parse step limit exceeded")
 
-// OverReadLimit reports whether the lexer is over its read limit, and sets a parse error when it
-// is. Parsers generated with GenerateReadLimitChecks call it on entry to every struct of the
-// grammar, inlined or not, so once over the limit every struct fails at once and the parse
-// unwinds through the ordinary error path. Between two struct entries generated code only
-// matches tokens, each test either consuming its token or ending its loop, so past the limit the
-// parse stops within one run of tokens.
-func (c *GeneratedParserContext) OverReadLimit() bool {
-	if !c.Lex.OverReadLimit() {
+// OverStepLimit counts entering a grammar struct as one step (see lexer.PeekingLexer.Steps),
+// reports whether the lexer is over its step limit, and sets a parse error when it is. Parsers
+// generated with GenerateStepLimitChecks call it on entry to every struct of the grammar, inlined
+// or not, so once over the limit every struct fails at once and the parse unwinds through the
+// ordinary error path. Between two struct entries generated code only matches tokens, each test
+// either consuming its token or ending its loop, so past the limit the parse stops within one run
+// of tokens.
+func (c *GeneratedParserContext) OverStepLimit() bool {
+	if !c.Lex.Step() {
 		return false
 	}
-	c.setError(genParseError, ErrReadLimit.Error(), nil)
+	c.setError(genParseError, ErrStepLimit.Error(), nil)
 	return true
 }
 
@@ -187,8 +188,8 @@ func (c *GeneratedParserContext) FinalError() error {
 	}
 	// Over the limit the parse fails whatever its outcome, so that whether a parse succeeds
 	// depends only on its input and the limit, not on where the last check happened to fall.
-	if c.Lex.OverReadLimit() {
-		return Wrapf(c.Lex.Peek().Pos, ErrReadLimit, "%d token reads", c.Lex.Reads())
+	if c.Lex.OverStepLimit() {
+		return Wrapf(c.Lex.Peek().Pos, ErrStepLimit, "%d parse steps", c.Lex.Steps())
 	}
 
 	if !c.err.active {
@@ -218,7 +219,7 @@ type codeGenerator struct {
 	packagePrefix    string
 	lookahead        int
 	printAllocations bool
-	readLimitChecks  bool
+	stepLimitChecks  bool
 
 	out            bytes.Buffer
 	lines          int
@@ -240,12 +241,12 @@ type generatedParserTypeCase struct {
 // GenerateOption modifies the code GenerateParserCode produces.
 type GenerateOption func(g *codeGenerator)
 
-// GenerateReadLimitChecks makes every generated struct check the lexer's read limit on entry
-// (see GeneratedParserContext.OverReadLimit). Without it a parse over the limit still fails, but
-// only once it has finished.
-func GenerateReadLimitChecks() GenerateOption {
+// GenerateStepLimitChecks makes every generated struct count a step and check the lexer's step
+// limit on entry (see GeneratedParserContext.OverStepLimit). Without it a parse counts only
+// consumed tokens, and a parse over the limit still fails, but only once it has finished.
+func GenerateStepLimitChecks() GenerateOption {
 	return func(g *codeGenerator) {
-		g.readLimitChecks = true
+		g.stepLimitChecks = true
 	}
 }
 
@@ -332,8 +333,8 @@ func GenerateParserCode[PG GeneratedParser, G any](parser *Parser[G], opts ...Ge
 		gen.statement(fmt.Sprintf(`func (c *%s) parse%s(out *%s) {`, parserCtxName, normalizedName, qualifiedName))
 		state.errorLabel = gen.newLabel(`strct`+normalizedName, `Error`)
 		gen.indent++
-		if gen.readLimitChecks {
-			gen.statement(`if c.OverReadLimit() {`)
+		if gen.stepLimitChecks {
+			gen.statement(`if c.OverStepLimit() {`)
 			gen.gotoLabelIndent(state.errorLabel, 1)
 			gen.statement(`}`)
 		}

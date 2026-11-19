@@ -17,7 +17,7 @@ import (
 func TestGenerateCombinedParser(t *testing.T) {
 	defer patchMaxIterations()()
 	participle.MustGenerateParserFile[combinedGenerator](combinedParser, "combined_gen.go", 0664,
-		participle.GenerateReadLimitChecks())
+		participle.GenerateStepLimitChecks())
 }
 
 // TODO: struct positions & tokens, non-empty group, lookahead group, literal switch
@@ -284,10 +284,10 @@ func TestCombinedParser_LongStringCaptureRun(t *testing.T) {
 		shortBytes, n, longBytes, 4*n, ratio)
 }
 
-// A parse succeeds when its token reads stay within the lexer's read limit and fails with
-// ErrReadLimit one read over it. The struct-entry checks stop an over-limit parse early instead
-// of letting it run to the end.
-func TestCombinedParser_ReadLimit(t *testing.T) {
+// A parse succeeds when its steps stay within the lexer's step limit and fails with ErrStepLimit
+// one step over it. The struct-entry checks stop an over-limit parse early instead of letting it
+// run to the end.
+func TestCombinedParser_StepLimit(t *testing.T) {
 	original := participle.MaxIterations
 	participle.MaxIterations = 1 << 20
 	defer func() { participle.MaxIterations = original }()
@@ -298,10 +298,10 @@ func TestCombinedParser_ReadLimit(t *testing.T) {
 		peeking, err := lexer.Upgrade(lexed)
 		require.NoError(t, err)
 		if limit > 0 {
-			peeking.SetReadLimit(limit)
+			peeking.SetStepLimit(limit)
 		}
 		out, err := combinedParser.ParseFromLexer(peeking)
-		return out, peeking.Reads(), err
+		return out, peeking.Steps(), err
 	}
 
 	in := strings.Repeat("struct a {{b}} [c, d] ", 1000)
@@ -314,9 +314,9 @@ func TestCombinedParser_ReadLimit(t *testing.T) {
 	require.Equal(t, unlimited, atLimit)
 
 	_, _, err = parse(in, reads-1)
-	require.True(t, errors.Is(err, participle.ErrReadLimit), "error %v", err)
+	require.True(t, errors.Is(err, participle.ErrStepLimit), "error %v", err)
 
 	_, stoppedReads, err := parse(in, reads/100)
-	require.True(t, errors.Is(err, participle.ErrReadLimit), "error %v", err)
-	require.True(t, stoppedReads < reads/50, "stopped after %d of %d reads", stoppedReads, reads)
+	require.True(t, errors.Is(err, participle.ErrStepLimit), "error %v", err)
+	require.True(t, stoppedReads < reads/50, "stopped after %d of %d steps", stoppedReads, reads)
 }

@@ -10,10 +10,10 @@ type PeekingLexer struct {
 	Checkpoint
 	tokens []Token
 	elide  map[TokenType]bool
-	// reads counts Peek and Next calls. It sits outside Checkpoint so that restoring a checkpoint
-	// does not rewind it: backtracking is work too.
-	reads     int
-	readLimit int
+	// steps counts parse work (see Steps). It sits outside Checkpoint so that restoring a
+	// checkpoint does not rewind it: backtracking is work too.
+	steps     int
+	stepLimit int
 }
 
 // RawCursor index in the token stream.
@@ -34,7 +34,7 @@ type Checkpoint struct {
 func Upgrade(lex Lexer, elide ...TokenType) (*PeekingLexer, error) {
 	r := &PeekingLexer{
 		elide:     make(map[TokenType]bool, len(elide)),
-		readLimit: math.MaxInt,
+		stepLimit: math.MaxInt,
 	}
 	return fillInPeekingLexer(lex, r, elide...)
 }
@@ -80,8 +80,8 @@ func UpgradePooled(lex Lexer, elide ...TokenType) (*PeekingLexer, error) {
 	r := peekingLexerPool.Get().(*PeekingLexer)
 	// reset the state of the PeekingLexer to empty (preserving any allocated capacity)
 	r.Checkpoint = Checkpoint{}
-	r.reads = 0
-	r.readLimit = math.MaxInt
+	r.steps = 0
+	r.stepLimit = math.MaxInt
 	// note: this preserves capacity
 	r.tokens = r.tokens[:0]
 	for k := range r.elide {
@@ -111,29 +111,38 @@ func (c Checkpoint) RawCursor() RawCursor {
 	return c.rawCursor
 }
 
-// Reads returns how many times Peek and Next have been called since the lexer was upgraded,
-// counting reads made before every LoadCheckpoint. A parser reads a token for each test it makes,
-// failed tests and re-reads after backtracking included, so this measures the parse's work.
-func (p *PeekingLexer) Reads() int {
-	return p.reads
+// Steps returns the parse work done on this lexer since it was upgraded: one step per Next,
+// re-consumption after a LoadCheckpoint included, plus one per Step call. Peek is not counted:
+// a generated parser peeks a bounded number of times between two consumed tokens or two entered
+// productions, so counting both of those (parsers generated with
+// participle.GenerateStepLimitChecks call Step on entry to every grammar struct) bounds all of
+// its work, failed alternatives and backtracking included, while keeping Peek free.
+func (p *PeekingLexer) Steps() int {
+	return p.steps
 }
 
-// SetReadLimit allows n more reads (see Reads) from now. A parser generated with
-// participle.GenerateReadLimitChecks fails once the lexer is over its limit, with an error
-// wrapping participle.ErrReadLimit; the lexer itself keeps working. Without a call there is no
+// SetStepLimit allows n more steps (see Steps) from now. A parser generated with
+// participle.GenerateStepLimitChecks fails once the lexer is over its limit, with an error
+// wrapping participle.ErrStepLimit; the lexer itself keeps working. Without a call there is no
 // limit.
-func (p *PeekingLexer) SetReadLimit(n int) {
-	p.readLimit = p.reads + n
+func (p *PeekingLexer) SetStepLimit(n int) {
+	p.stepLimit = p.steps + n
 }
 
-// OverReadLimit reports whether Reads has passed the limit SetReadLimit set.
-func (p *PeekingLexer) OverReadLimit() bool {
-	return p.reads > p.readLimit
+// Step counts one step of parse work and reports whether Steps has passed the limit.
+func (p *PeekingLexer) Step() bool {
+	p.steps++
+	return p.steps > p.stepLimit
+}
+
+// OverStepLimit reports whether Steps has passed the limit SetStepLimit set.
+func (p *PeekingLexer) OverStepLimit() bool {
+	return p.steps > p.stepLimit
 }
 
 // Next consumes and returns the next token.
 func (p *PeekingLexer) Next() *Token {
-	p.reads++
+	p.steps++
 	t := &p.tokens[p.nextCursor]
 	if t.EOF() {
 		return t
@@ -147,7 +156,6 @@ func (p *PeekingLexer) Next() *Token {
 
 // Peek ahead at the next non-elided token.
 func (p *PeekingLexer) Peek() *Token {
-	p.reads++
 	return &p.tokens[p.nextCursor]
 }
 

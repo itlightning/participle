@@ -24,7 +24,7 @@ func (_ combinedGenerator) ParseCombined(ctx participle.GeneratedParserContext, 
 }
 
 func (c *combinedGeneratorContext) parseCombined(out *Combined) {
-	if c.OverReadLimit() {
+	if c.OverStepLimit() {
 		goto strctCombined26Error
 	}
 	c.SuppressError()
@@ -43,7 +43,7 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 			// strct Nil
 			{
 				var vNil Nil
-				if c.OverReadLimit() {
+				if c.OverStepLimit() {
 					goto disjunction39Alt0Error
 				}
 
@@ -67,7 +67,7 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 			// strct Strings
 			{
 				var vStrings Strings
-				if c.OverReadLimit() {
+				if c.OverStepLimit() {
 					goto disjunction39Alt1Error
 				}
 
@@ -204,7 +204,7 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 			// strct Ints
 			{
 				var vInts Ints
-				if c.OverReadLimit() {
+				if c.OverStepLimit() {
 					goto disjunction39Alt2Error
 				}
 
@@ -335,7 +335,7 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 			// strct Uints
 			{
 				var vUints Uints
-				if c.OverReadLimit() {
+				if c.OverStepLimit() {
 					goto disjunction39Alt3Error
 				}
 
@@ -500,7 +500,7 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 			// strct Floats
 			{
 				var vFloats Floats
-				if c.OverReadLimit() {
+				if c.OverStepLimit() {
 					goto disjunction39Alt4Error
 				}
 
@@ -652,7 +652,7 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 			// strct Structs
 			{
 				var vStructs Structs
-				if c.OverReadLimit() {
+				if c.OverStepLimit() {
 					goto disjunction39Alt5Error
 				}
 
@@ -807,7 +807,7 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 			// strct Negation
 			{
 				var vNegation Negation
-				if c.OverReadLimit() {
+				if c.OverStepLimit() {
 					goto disjunction39Alt6Error
 				}
 
@@ -1001,7 +1001,7 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 			// strct Custom
 			{
 				var vCustom Custom
-				if c.OverReadLimit() {
+				if c.OverStepLimit() {
 					goto disjunction39Alt7Error
 				}
 
@@ -1121,7 +1121,7 @@ func (_ combinedGenerator) ParseRoot(ctx participle.GeneratedParserContext, out 
 }
 
 func (c *combinedGeneratorContext) parseRoot(out *Root) {
-	if c.OverReadLimit() {
+	if c.OverStepLimit() {
 		goto strctRoot1123Error
 	}
 	c.SuppressError()
@@ -1145,7 +1145,7 @@ func (_ combinedGenerator) ParseRec(ctx participle.GeneratedParserContext, out i
 }
 
 func (c *combinedGeneratorContext) parseRec(out *Rec) {
-	if c.OverReadLimit() {
+	if c.OverStepLimit() {
 		goto strctRec1147Error
 	}
 	c.SuppressError()

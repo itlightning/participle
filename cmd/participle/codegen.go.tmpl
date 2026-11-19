@@ -85,6 +85,12 @@ var _ lexer.WorkLimiter = (*lexer{{.Name}}Impl)(nil)
 func (l *lexer{{.Name}}Impl) Work() int { return l.work }
 
 func (l *lexer{{.Name}}Impl) SetWorkLimit(n int) { l.workLimit = n }
+
+// workLimitError is kept out of Next so that the check costs Next only a comparison.
+//go:noinline
+func (l *lexer{{.Name}}Impl) workLimitError() (lexer.Token, error) {
+	return lexer.Token{}, participle.Wrapf(l.pos, lexer.ErrWorkLimit, "work %d over the limit of %d", l.work, l.workLimit)
+}
 {{- end}}
 
 func (l *lexer{{.Name}}Impl) Next() (lexer.Token, error) {
@@ -125,7 +131,7 @@ func (l *lexer{{.Name}}Impl) Next() (lexer.Token, error) {
 	}
 {{- if .CountWork}}
 	if l.work > l.workLimit {
-		return lexer.Token{}, participle.Wrapf(l.pos, lexer.ErrWorkLimit, "more than %d steps", l.workLimit)
+		return l.workLimitError()
 	}
 {{- end}}
 	if groups == nil {

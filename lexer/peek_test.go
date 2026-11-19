@@ -47,32 +47,33 @@ func TestUpgradePooled(t *testing.T) {
 	require.Equal(t, tokens, l.Range(0, 3))
 }
 
-// Reads counts every Peek and Next, including those undone by LoadCheckpoint; SetReadLimit allows
-// that many more reads; a pooled lexer starts again from zero with no limit.
-func TestPeekingLexerReads(t *testing.T) {
+// Steps counts every Next, including those undone by LoadCheckpoint, and every Step, not Peek;
+// SetStepLimit allows that many more steps; a pooled lexer starts again from zero with no limit.
+func TestPeekingLexerSteps(t *testing.T) {
 	tokens := []lexer.Token{{Type: 1, Value: "a"}, {Type: 2, Value: " "}, {Type: 1, Value: "b"}}
 	l, err := lexer.UpgradePooled(&staticLexer{tokens: append([]lexer.Token(nil), tokens...)}, 2)
 	require.NoError(t, err)
-	require.Equal(t, 0, l.Reads())
+	require.Equal(t, 0, l.Steps())
 	start := l.MakeCheckpoint()
 	l.Peek()
 	l.Next()
 	l.Next()
-	require.Equal(t, 3, l.Reads())
+	require.Equal(t, 2, l.Steps())
 	l.LoadCheckpoint(start)
+	l.Next()
+	require.Equal(t, 3, l.Steps())
+	l.SetStepLimit(1)
+	require.False(t, l.Step())
+	require.False(t, l.OverStepLimit())
 	l.Peek()
-	require.Equal(t, 4, l.Reads())
-	l.SetReadLimit(1)
-	l.Peek()
-	require.False(t, l.OverReadLimit())
-	l.Peek()
-	require.True(t, l.OverReadLimit())
+	require.True(t, l.Step())
+	require.True(t, l.OverStepLimit())
 	lexer.PutBackPooledPeekingLexer(l)
 
 	l, err = lexer.UpgradePooled(&staticLexer{tokens: append([]lexer.Token(nil), tokens...)}, 2)
 	require.NoError(t, err)
-	require.Equal(t, 0, l.Reads())
-	require.False(t, l.OverReadLimit())
+	require.Equal(t, 0, l.Steps())
+	require.False(t, l.OverStepLimit())
 	lexer.PutBackPooledPeekingLexer(l)
 }
 

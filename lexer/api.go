@@ -50,10 +50,10 @@ type Lexer interface {
 
 // WorkLimiter is implemented by lexers generated with work counting (`participle gen lexer
 // --count-work`). Their work is the number of bytes the rule matchers' repetition loops step
-// over, summed over every rule attempt, failed attempts included. One attempt does a bounded
-// amount of work outside its loops, so work plus a constant per token bounds the lexer's cost;
-// a rule that rescans a long run from every token start shows up as work growing faster than
-// the input.
+// over, summed over every rule attempt, failed attempts included, leaving out loops that step
+// over 16 bytes or fewer. One attempt does a bounded amount of work outside the counted loops,
+// so work plus a constant per token bounds the lexer's cost; a rule that rescans a long run from
+// every token start shows up as work growing faster than the input.
 type WorkLimiter interface {
 	// Work returns the work done so far.
 	Work() int
