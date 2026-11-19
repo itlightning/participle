@@ -1,6 +1,9 @@
 package lexer
 
-import "sync"
+import (
+	"math"
+	"sync"
+)
 
 // PeekingLexer supports arbitrary lookahead as well as cloning.
 type PeekingLexer struct {
@@ -9,7 +12,8 @@ type PeekingLexer struct {
 	elide  map[TokenType]bool
 	// reads counts Peek and Next calls. It sits outside Checkpoint so that restoring a checkpoint
 	// does not rewind it: backtracking is work too.
-	reads int
+	reads     int
+	readLimit int
 }
 
 // RawCursor index in the token stream.
@@ -29,7 +33,8 @@ type Checkpoint struct {
 // "elide" is a slice of token types to elide from processing.
 func Upgrade(lex Lexer, elide ...TokenType) (*PeekingLexer, error) {
 	r := &PeekingLexer{
-		elide: make(map[TokenType]bool, len(elide)),
+		elide:     make(map[TokenType]bool, len(elide)),
+		readLimit: math.MaxInt,
 	}
 	return fillInPeekingLexer(lex, r, elide...)
 }
@@ -76,6 +81,7 @@ func UpgradePooled(lex Lexer, elide ...TokenType) (*PeekingLexer, error) {
 	// reset the state of the PeekingLexer to empty (preserving any allocated capacity)
 	r.Checkpoint = Checkpoint{}
 	r.reads = 0
+	r.readLimit = math.MaxInt
 	// note: this preserves capacity
 	r.tokens = r.tokens[:0]
 	for k := range r.elide {
@@ -110,6 +116,19 @@ func (c Checkpoint) RawCursor() RawCursor {
 // failed tests and re-reads after backtracking included, so this measures the parse's work.
 func (p *PeekingLexer) Reads() int {
 	return p.reads
+}
+
+// SetReadLimit allows n more reads (see Reads) from now. A parser generated with
+// participle.GenerateReadLimitChecks fails once the lexer is over its limit, with an error
+// wrapping participle.ErrReadLimit; the lexer itself keeps working. Without a call there is no
+// limit.
+func (p *PeekingLexer) SetReadLimit(n int) {
+	p.readLimit = p.reads + n
+}
+
+// OverReadLimit reports whether Reads has passed the limit SetReadLimit set.
+func (p *PeekingLexer) OverReadLimit() bool {
+	return p.reads > p.readLimit
 }
 
 // Next consumes and returns the next token.

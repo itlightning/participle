@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"math"
 	"os"
 	"reflect"
 	"strings"
@@ -33,7 +32,6 @@ type GeneratedParserContext struct {
 	parserOpts    *parserOptions
 	allowTrailing bool
 	concat        *strings.Builder // see AddToString
-	readLimit     int              // see OverTokenReadLimit
 
 	err generatedError
 }
@@ -45,25 +43,24 @@ func NewGeneratedParserContext[G any](
 		Lex:           lex,
 		parserOpts:    &parser.parserOptions,
 		allowTrailing: allowTrailing,
-		readLimit:     math.MaxInt,
 	}
 }
 
-// ErrTokenReadLimit is wrapped by the error a generated parser returns when the parse read more
-// tokens than the TokenReadLimit parse option allows.
-var ErrTokenReadLimit = errors.New("token read limit exceeded")
+// ErrReadLimit is wrapped by the error a generated parser returns when its lexer went over the
+// limit set with lexer.PeekingLexer.SetReadLimit.
+var ErrReadLimit = errors.New("token read limit exceeded")
 
-// OverTokenReadLimit reports whether the parse has read more tokens than TokenReadLimit allows,
-// and sets a parse error when it has. Parsers generated with GenerateTokenReadLimitChecks call it
-// on entry to every struct of the grammar, inlined or not, so once over the limit every struct
-// fails at once and the parse unwinds through the ordinary error path. Between two struct entries
-// generated code only matches tokens, each test either consuming its token or ending its loop,
-// so past the limit the parse stops within one run of tokens.
-func (c *GeneratedParserContext) OverTokenReadLimit() bool {
-	if c.Lex.Reads() <= c.readLimit {
+// OverReadLimit reports whether the lexer is over its read limit, and sets a parse error when it
+// is. Parsers generated with GenerateReadLimitChecks call it on entry to every struct of the
+// grammar, inlined or not, so once over the limit every struct fails at once and the parse
+// unwinds through the ordinary error path. Between two struct entries generated code only
+// matches tokens, each test either consuming its token or ending its loop, so past the limit the
+// parse stops within one run of tokens.
+func (c *GeneratedParserContext) OverReadLimit() bool {
+	if !c.Lex.OverReadLimit() {
 		return false
 	}
-	c.setError(genParseError, ErrTokenReadLimit.Error(), nil)
+	c.setError(genParseError, ErrReadLimit.Error(), nil)
 	return true
 }
 
@@ -190,8 +187,8 @@ func (c *GeneratedParserContext) FinalError() error {
 	}
 	// Over the limit the parse fails whatever its outcome, so that whether a parse succeeds
 	// depends only on its input and the limit, not on where the last check happened to fall.
-	if c.Lex.Reads() > c.readLimit {
-		return Wrapf(c.Lex.Peek().Pos, ErrTokenReadLimit, "more than %d token reads", c.readLimit)
+	if c.Lex.OverReadLimit() {
+		return Wrapf(c.Lex.Peek().Pos, ErrReadLimit, "%d token reads", c.Lex.Reads())
 	}
 
 	if !c.err.active {
@@ -243,10 +240,10 @@ type generatedParserTypeCase struct {
 // GenerateOption modifies the code GenerateParserCode produces.
 type GenerateOption func(g *codeGenerator)
 
-// GenerateTokenReadLimitChecks makes every generated production check the TokenReadLimit parse
-// option on entry (see GeneratedParserContext.OverTokenReadLimit). Without it a parse over the
-// limit still fails, but only once it has finished.
-func GenerateTokenReadLimitChecks() GenerateOption {
+// GenerateReadLimitChecks makes every generated struct check the lexer's read limit on entry
+// (see GeneratedParserContext.OverReadLimit). Without it a parse over the limit still fails, but
+// only once it has finished.
+func GenerateReadLimitChecks() GenerateOption {
 	return func(g *codeGenerator) {
 		g.readLimitChecks = true
 	}
@@ -336,7 +333,7 @@ func GenerateParserCode[PG GeneratedParser, G any](parser *Parser[G], opts ...Ge
 		state.errorLabel = gen.newLabel(`strct`+normalizedName, `Error`)
 		gen.indent++
 		if gen.readLimitChecks {
-			gen.statement(`if c.OverTokenReadLimit() {`)
+			gen.statement(`if c.OverReadLimit() {`)
 			gen.gotoLabelIndent(state.errorLabel, 1)
 			gen.statement(`}`)
 		}

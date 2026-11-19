@@ -137,17 +137,6 @@ func AllowTrailing(ok bool) ParseOption {
 	}
 }
 
-// TokenReadLimit fails a generated parse once it has made more than n token reads (Peek and Next
-// on its PeekingLexer, counting re-reads after backtracking), so that the parse's work has a
-// bound the caller chooses, typically a multiple of the input length. The parse returns an error
-// wrapping ErrTokenReadLimit. It applies to generated parsers only: the reflective parser reads
-// copies of the lexer and does not check it.
-func TokenReadLimit(n int) ParseOption {
-	return func(p *parseContext) {
-		p.tokenReadLimit = n
-	}
-}
-
 func SkipGeneratedParser() ParseOption {
 	return func(p *parseContext) {
 		p.skipGenParser = true

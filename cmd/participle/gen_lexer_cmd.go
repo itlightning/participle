@@ -194,20 +194,6 @@ func generateRegexMatch(w io.Writer, lexerName, name, pattern string, countWork 
 	fmt.Fprintf(w, "// %s\n", re)
 	fmt.Fprintf(w, "func match%s%s(s string, p int, backrefs []string%s) (groups [%d]int) {\n", lexerName, name, workParam, 2*re.MaxCap()+2)
 	flattened := flatten(re)
-	countSteps := false
-	if countWork {
-		for _, re := range flattened {
-			if re.Op == syntax.OpStar || re.Op == syntax.OpPlus {
-				countSteps = true
-			}
-		}
-	}
-	// step is what a repetition loop runs for one more repetition ending at np.
-	step := "p = np"
-	if countSteps {
-		step = "steps += np - p; p = np"
-		fmt.Fprintf(w, "steps := 0\n")
-	}
 
 	// Fast-path a single literal.
 	if len(flattened) == 1 && re.Op == syntax.OpLiteral {
@@ -373,21 +359,24 @@ func generateRegexMatch(w io.Writer, lexerName, name, pattern string, countWork 
 			fmt.Fprintf(w, "}\n")
 			fmt.Fprintf(w, "return np")
 
-		case syntax.OpStar: // matches Sub[0] zero or more times
-			fmt.Fprintf(w, "for len(s) > p {\n")
-			fmt.Fprintf(w, "if np := l%d(s, p); np == -1 { return p } else { %s }\n", reid(re.Sub0[0]), step)
-			fmt.Fprintf(w, "}\n")
-			fmt.Fprintf(w, "return p\n")
-
-		case syntax.OpPlus: // matches Sub[0] one or more times
-			if countSteps {
-				fmt.Fprintf(w, "if np := l%d(s, p); np == -1 { return -1 } else { %s }\n", reid(re.Sub0[0]), step)
-			} else {
+		case syntax.OpStar, syntax.OpPlus: // matches Sub[0] zero (one) or more times
+			if countWork {
+				// A loop advances p by each repetition, so the bytes it stepped over are its
+				// end minus its start: one addition per loop instead of one per repetition.
+				fmt.Fprintf(w, "start := p\n")
+			}
+			if re.Op == syntax.OpPlus {
 				fmt.Fprintf(w, "if p = l%d(s, p); p == -1 { return -1 }\n", reid(re.Sub0[0]))
 			}
 			fmt.Fprintf(w, "for len(s) > p {\n")
-			fmt.Fprintf(w, "if np := l%d(s, p); np == -1 { return p } else { %s }\n", reid(re.Sub0[0]), step)
-			fmt.Fprintf(w, "}\n")
+			if countWork {
+				fmt.Fprintf(w, "if np := l%d(s, p); np == -1 { break } else { p = np }\n", reid(re.Sub0[0]))
+				fmt.Fprintf(w, "}\n")
+				fmt.Fprintf(w, "*work += p - start\n")
+			} else {
+				fmt.Fprintf(w, "if np := l%d(s, p); np == -1 { return p } else { p = np }\n", reid(re.Sub0[0]))
+				fmt.Fprintf(w, "}\n")
+			}
 			fmt.Fprintf(w, "return p\n")
 
 		case syntax.OpQuest: // matches Sub[0] zero or one times
@@ -412,9 +401,6 @@ func generateRegexMatch(w io.Writer, lexerName, name, pattern string, countWork 
 		fmt.Fprintf(w, "}\n")
 	}
 	fmt.Fprintf(w, "np := l%d(s, p)\n", reid(re))
-	if countSteps {
-		fmt.Fprintf(w, "*work += steps\n")
-	}
 	fmt.Fprintf(w, "if np == -1 {\n")
 	fmt.Fprintf(w, "  return\n")
 	fmt.Fprintf(w, "}\n")
