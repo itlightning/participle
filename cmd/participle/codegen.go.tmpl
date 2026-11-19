@@ -6,6 +6,9 @@ package {{.Package}}
 import (
 	"fmt"
 	"io"
+{{- if .CountWork}}
+	"math"
+{{- end}}
 	"strings"
 	"sync"
 	"unicode/utf8"
@@ -41,6 +44,9 @@ func (lexer{{.Name}}DefinitionImpl) LexString(filename string, s string) (lexer.
 			Column:   1,
 		},
 		states: []lexer{{.Name}}State{ {name: "Root"} },
+{{- if .CountWork}}
+		workLimit: math.MaxInt,
+{{- end}}
 	}, nil
 }
 
@@ -67,7 +73,19 @@ type lexer{{.Name}}Impl struct {
 	p       int
 	pos     lexer.Position
 	states  []lexer{{.Name}}State
+{{- if .CountWork}}
+	work      int
+	workLimit int
+{{- end}}
 }
+{{- if .CountWork}}
+
+var _ lexer.WorkLimiter = (*lexer{{.Name}}Impl)(nil)
+
+func (l *lexer{{.Name}}Impl) Work() int { return l.work }
+
+func (l *lexer{{.Name}}Impl) SetWorkLimit(n int) { l.workLimit = n }
+{{- end}}
 
 func (l *lexer{{.Name}}Impl) Next() (lexer.Token, error) {
 	if l.p == len(l.s) {
@@ -84,7 +102,7 @@ func (l *lexer{{.Name}}Impl) Next() (lexer.Token, error) {
 {{- range $i, $rule := $state.Rules}}
 		{{- if $i}} else {{end -}}
 {{- if .Pattern -}}
-		if match := match{{$.Name}}{{.Name}}(l.s, l.p, l.states[len(l.states)-1].groups); match[1] != 0 {
+		if match := match{{$.Name}}{{.Name}}(l.s, l.p, l.states[len(l.states)-1].groups{{if $.CountWork}}, &l.work{{end}}); match[1] != 0 {
 			sym = {{index $.Def.Symbols .Name}}
 			groups = match[:]
 {{- else if .|IsReturn -}}
@@ -105,6 +123,11 @@ func (l *lexer{{.Name}}Impl) Next() (lexer.Token, error) {
 {{- end}}
 {{- end}}
 	}
+{{- if .CountWork}}
+	if l.work > l.workLimit {
+		return lexer.Token{}, participle.Wrapf(l.pos, lexer.ErrWorkLimit, "more than %d steps", l.workLimit)
+	}
+{{- end}}
 	if groups == nil {
 		sample := []rune(l.s[l.p:])
 		if len(sample) > 16 {

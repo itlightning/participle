@@ -28,6 +28,7 @@ type parseContext struct {
 	apply             []*contextFieldSet
 	allowTrailing     bool
 	skipGenParser     bool
+	tokenReadLimit    int
 }
 
 func newParseContext(lex *lexer.PeekingLexer, lookahead int, caseInsensitive map[lexer.TokenType]bool) parseContext {

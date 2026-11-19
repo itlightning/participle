@@ -7,6 +7,9 @@ type PeekingLexer struct {
 	Checkpoint
 	tokens []Token
 	elide  map[TokenType]bool
+	// reads counts Peek and Next calls. It sits outside Checkpoint so that restoring a checkpoint
+	// does not rewind it: backtracking is work too.
+	reads int
 }
 
 // RawCursor index in the token stream.
@@ -72,6 +75,7 @@ func UpgradePooled(lex Lexer, elide ...TokenType) (*PeekingLexer, error) {
 	r := peekingLexerPool.Get().(*PeekingLexer)
 	// reset the state of the PeekingLexer to empty (preserving any allocated capacity)
 	r.Checkpoint = Checkpoint{}
+	r.reads = 0
 	// note: this preserves capacity
 	r.tokens = r.tokens[:0]
 	for k := range r.elide {
@@ -101,8 +105,16 @@ func (c Checkpoint) RawCursor() RawCursor {
 	return c.rawCursor
 }
 
+// Reads returns how many times Peek and Next have been called since the lexer was upgraded,
+// counting reads made before every LoadCheckpoint. A parser reads a token for each test it makes,
+// failed tests and re-reads after backtracking included, so this measures the parse's work.
+func (p *PeekingLexer) Reads() int {
+	return p.reads
+}
+
 // Next consumes and returns the next token.
 func (p *PeekingLexer) Next() *Token {
+	p.reads++
 	t := &p.tokens[p.nextCursor]
 	if t.EOF() {
 		return t
@@ -116,6 +128,7 @@ func (p *PeekingLexer) Next() *Token {
 
 // Peek ahead at the next non-elided token.
 func (p *PeekingLexer) Peek() *Token {
+	p.reads++
 	return &p.tokens[p.nextCursor]
 }
 

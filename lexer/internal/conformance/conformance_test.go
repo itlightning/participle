@@ -236,7 +236,7 @@ func testLexer(t *testing.T, lex lexer.Definition) {
 
 func TestLexerConformanceGenerated(t *testing.T) {
 	genLexer(t)
-	args := []string{"test", "-run", "TestLexerConformanceGeneratedInternal", "-tags", "generated"}
+	args := []string{"test", "-run", "TestLexerConformanceGeneratedInternal|TestLexerWorkLimitGeneratedInternal", "-tags", "generated"}
 	// Propagate test flags.
 	flag.CommandLine.VisitAll(func(f *flag.Flag) {
 		if f.Value.String() != f.DefValue && f.Name != "test.run" {
@@ -267,6 +267,7 @@ func genLexer(t *testing.T) { //nolint: thelper
 		"../../../scripts/participle",
 		"gen", "lexer", "conformance",
 		"--tags", "generated",
+		"--count-work",
 		"--name", "GeneratedConformance",
 		"--output", generatedConformanceLexer)
 	cmd.Stdout = os.Stderr

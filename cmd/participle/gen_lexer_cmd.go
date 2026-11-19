@@ -17,11 +17,12 @@ import (
 )
 
 type genLexerCmd struct {
-	Name    string `help:"Name of the lexer."`
-	Output  string `short:"o" help:"Output file."`
-	Tags    string `help:"Build tags to include in the generated file."`
-	Package string `arg:"" required:"" help:"Go package for generated code."`
-	Lexer   string `arg:"" default:"-" type:"existingfile" help:"JSON representation of a Participle lexer (read from stdin if omitted)."`
+	Name      string `help:"Name of the lexer."`
+	Output    string `short:"o" help:"Output file."`
+	Tags      string `help:"Build tags to include in the generated file."`
+	CountWork bool   `help:"Count the matchers' work and implement lexer.WorkLimiter."`
+	Package   string `arg:"" required:"" help:"Go package for generated code."`
+	Lexer     string `arg:"" default:"-" type:"existingfile" help:"JSON representation of a Participle lexer (read from stdin if omitted)."`
 }
 
 func (c *genLexerCmd) Help() string {
@@ -62,7 +63,7 @@ func (c *genLexerCmd) Run() error {
 		}
 		defer out.Close()
 	}
-	err = generateLexer(out, c.Package, def, c.Name, c.Tags)
+	err = generateLexer(out, c.Package, def, c.Name, c.Tags, c.CountWork)
 	if err != nil {
 		return err
 	}
@@ -99,15 +100,16 @@ var (
 	}).Parse(codegenTemplateSource))
 )
 
-func generateLexer(w io.Writer, pkg string, def *lexer.StatefulDefinition, name, tags string) error {
+func generateLexer(w io.Writer, pkg string, def *lexer.StatefulDefinition, name, tags string, countWork bool) error {
 	type ctx struct {
-		Package string
-		Name    string
-		Tags    string
-		Def     *lexer.StatefulDefinition
+		Package   string
+		Name      string
+		Tags      string
+		Def       *lexer.StatefulDefinition
+		CountWork bool
 	}
 	rules := def.Rules()
-	err := codegenTemplate.Execute(w, ctx{pkg, name, tags, def})
+	err := codegenTemplate.Execute(w, ctx{pkg, name, tags, def, countWork})
 	if err != nil {
 		return err
 	}
@@ -122,7 +124,7 @@ func generateLexer(w io.Writer, pkg string, def *lexer.StatefulDefinition, name,
 			}
 			seen[rule.Name] = true
 			fmt.Fprintf(w, "\n")
-			err := generateRegexMatch(w, name, rule.Name, rule.Pattern)
+			err := generateRegexMatch(w, name, rule.Name, rule.Pattern, countWork)
 			if err != nil {
 				return err
 			}
@@ -150,9 +152,16 @@ func orderRules(rules lexer.Rules) []orderedRule {
 	return orderedRules
 }
 
-func generateRegexMatch(w io.Writer, lexerName, name, pattern string) error {
+// generateRegexMatch writes the matcher for one rule. With countWork the matcher takes a work
+// counter and adds to it the bytes its repetition loops step over (see lexer.WorkLimiter); a
+// backreference rule runs the regexp package and counts nothing.
+func generateRegexMatch(w io.Writer, lexerName, name, pattern string, countWork bool) error {
+	workParam := ""
+	if countWork {
+		workParam = ", work *int"
+	}
 	if codegenBackrefRe.FindStringIndex(pattern) != nil {
-		fmt.Fprintf(w, "func match%s%s(s string, p int, backrefs []string) (groups []int) {\n", lexerName, name)
+		fmt.Fprintf(w, "func match%s%s(s string, p int, backrefs []string%s) (groups []int) {\n", lexerName, name, workParam)
 		fmt.Fprintf(w, "  re, err := lexer.BackrefRegex(%sBackRefCache, %q, backrefs)\n", lexerName, pattern)
 		fmt.Fprintf(w, "  if err != nil { panic(fmt.Sprintf(\"%%s: %%s\", err, backrefs)) }\n")
 		fmt.Fprintf(w, "  return re.FindStringSubmatchIndex(s[p:])\n")
@@ -183,8 +192,22 @@ func generateRegexMatch(w io.Writer, lexerName, name, pattern string) error {
 	}
 	re = re.Simplify()
 	fmt.Fprintf(w, "// %s\n", re)
-	fmt.Fprintf(w, "func match%s%s(s string, p int, backrefs []string) (groups [%d]int) {\n", lexerName, name, 2*re.MaxCap()+2)
+	fmt.Fprintf(w, "func match%s%s(s string, p int, backrefs []string%s) (groups [%d]int) {\n", lexerName, name, workParam, 2*re.MaxCap()+2)
 	flattened := flatten(re)
+	countSteps := false
+	if countWork {
+		for _, re := range flattened {
+			if re.Op == syntax.OpStar || re.Op == syntax.OpPlus {
+				countSteps = true
+			}
+		}
+	}
+	// step is what a repetition loop runs for one more repetition ending at np.
+	step := "p = np"
+	if countSteps {
+		step = "steps += np - p; p = np"
+		fmt.Fprintf(w, "steps := 0\n")
+	}
 
 	// Fast-path a single literal.
 	if len(flattened) == 1 && re.Op == syntax.OpLiteral {
@@ -352,14 +375,18 @@ func generateRegexMatch(w io.Writer, lexerName, name, pattern string) error {
 
 		case syntax.OpStar: // matches Sub[0] zero or more times
 			fmt.Fprintf(w, "for len(s) > p {\n")
-			fmt.Fprintf(w, "if np := l%d(s, p); np == -1 { return p } else { p = np }\n", reid(re.Sub0[0]))
+			fmt.Fprintf(w, "if np := l%d(s, p); np == -1 { return p } else { %s }\n", reid(re.Sub0[0]), step)
 			fmt.Fprintf(w, "}\n")
 			fmt.Fprintf(w, "return p\n")
 
 		case syntax.OpPlus: // matches Sub[0] one or more times
-			fmt.Fprintf(w, "if p = l%d(s, p); p == -1 { return -1 }\n", reid(re.Sub0[0]))
+			if countSteps {
+				fmt.Fprintf(w, "if np := l%d(s, p); np == -1 { return -1 } else { %s }\n", reid(re.Sub0[0]), step)
+			} else {
+				fmt.Fprintf(w, "if p = l%d(s, p); p == -1 { return -1 }\n", reid(re.Sub0[0]))
+			}
 			fmt.Fprintf(w, "for len(s) > p {\n")
-			fmt.Fprintf(w, "if np := l%d(s, p); np == -1 { return p } else { p = np }\n", reid(re.Sub0[0]))
+			fmt.Fprintf(w, "if np := l%d(s, p); np == -1 { return p } else { %s }\n", reid(re.Sub0[0]), step)
 			fmt.Fprintf(w, "}\n")
 			fmt.Fprintf(w, "return p\n")
 
@@ -385,6 +412,9 @@ func generateRegexMatch(w io.Writer, lexerName, name, pattern string) error {
 		fmt.Fprintf(w, "}\n")
 	}
 	fmt.Fprintf(w, "np := l%d(s, p)\n", reid(re))
+	if countSteps {
+		fmt.Fprintf(w, "*work += steps\n")
+	}
 	fmt.Fprintf(w, "if np == -1 {\n")
 	fmt.Fprintf(w, "  return\n")
 	fmt.Fprintf(w, "}\n")

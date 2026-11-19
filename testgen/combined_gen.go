@@ -24,6 +24,9 @@ func (_ combinedGenerator) ParseCombined(ctx participle.GeneratedParserContext, 
 }
 
 func (c *combinedGeneratorContext) parseCombined(out *Combined) {
+	if c.OverTokenReadLimit() {
+		goto strctCombined26Error
+	}
 	c.SuppressError()
 
 	// group Feature+
@@ -44,17 +47,17 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 				// literal "nil"
 				if c.Lex.Peek().Value != "nil" {
 					c.SetTokenError("")
-					goto disjunction36Alt0Error
+					goto disjunction39Alt0Error
 				}
 				c.Lex.Next()
 
 				branch_out.Features = append(branch_out.Features, Feature(vNil))
 			}
 
-			goto disjunction36Success
-		disjunction36Alt0Error:
+			goto disjunction39Success
+		disjunction39Alt0Error:
 			if c.AboveLookahead(branchCheckpoint) {
-				goto group29Error
+				goto group32Error
 			}
 			c.Lex.LoadCheckpoint(branchCheckpoint)
 
@@ -67,7 +70,7 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 				// literal "str"
 				if c.Lex.Peek().Value != "str" {
 					c.SetTokenError("")
-					goto disjunction36Alt1Error
+					goto disjunction39Alt1Error
 				}
 				c.AddToString(&vStrings.Const, c.Lex.Peek().Value)
 				c.Lex.Next()
@@ -81,7 +84,7 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 					// reference <string>
 					if c.Lex.Peek().Type != -6 {
 						c.SetTokenError("")
-						goto group75Error
+						goto group78Error
 					}
 					c.AddToString(&branch_vStrings.Quoted, c.Lex.Peek().Value)
 					c.Lex.Next()
@@ -89,19 +92,19 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 					matches += 1
 					if matches >= participle.MaxIterations {
 						c.SetParseError("too many iterations of <string>+ (> 10)")
-						goto disjunction36Alt1Error
+						goto disjunction39Alt1Error
 					}
 					vStrings.Quoted = branch_vStrings.Quoted
 					continue
-				group75Error:
+				group78Error:
 					if c.AboveLookahead(branchCheckpoint) {
-						goto disjunction36Alt1Error
+						goto disjunction39Alt1Error
 					}
 					c.Lex.LoadCheckpoint(branchCheckpoint)
 					c.SuppressError()
 					if matches == 0 {
 						c.SetParseError("sub-expression <string>+ must match at least once")
-						goto disjunction36Alt1Error
+						goto disjunction39Alt1Error
 					}
 					break
 				}
@@ -118,7 +121,7 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 						// reference <ident>
 						if c.Lex.Peek().Type != -2 {
 							c.SetTokenError("")
-							goto group109Error
+							goto group112Error
 						}
 						bufPtr = c.Lex.Peek().Value
 						c.Lex.Next()
@@ -132,7 +135,7 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 							// literal "."
 							if c.Lex.Peek().Value != "." {
 								c.SetTokenError("")
-								goto group126Error
+								goto group129Error
 							}
 							bufPtr += c.Lex.Peek().Value
 							c.Lex.Next()
@@ -140,7 +143,7 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 							// reference <ident>
 							if c.Lex.Peek().Type != -2 {
 								c.SetTokenError("<ident>")
-								goto group126Error
+								goto group129Error
 							}
 							bufPtr += c.Lex.Peek().Value
 							c.Lex.Next()
@@ -148,12 +151,12 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 							matches += 1
 							if matches >= participle.MaxIterations {
 								c.SetParseError("too many iterations of (\".\" <ident>)* (> 10)")
-								goto group109Error
+								goto group112Error
 							}
 							continue
-						group126Error:
+						group129Error:
 							if c.AboveLookahead(branchCheckpoint) {
-								goto group109Error
+								goto group112Error
 							}
 							c.Lex.LoadCheckpoint(branchCheckpoint)
 							bufPtr = bufPtrCheckpoint
@@ -173,9 +176,9 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 
 					vStrings.Ptr = branch_vStrings.Ptr
 					break
-				group109Error:
+				group112Error:
 					if c.AboveLookahead(branchCheckpoint) {
-						goto disjunction36Alt1Error
+						goto disjunction39Alt1Error
 					}
 					c.Lex.LoadCheckpoint(branchCheckpoint)
 					c.SuppressError()
@@ -185,10 +188,10 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 				branch_out.Features = append(branch_out.Features, Feature(vStrings))
 			}
 
-			goto disjunction36Success
-		disjunction36Alt1Error:
+			goto disjunction39Success
+		disjunction39Alt1Error:
 			if c.AboveLookahead(branchCheckpoint) {
-				goto group29Error
+				goto group32Error
 			}
 			c.Lex.LoadCheckpoint(branchCheckpoint)
 
@@ -200,7 +203,7 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 				// literal "int"
 				if c.Lex.Peek().Value != "int" {
 					c.SetTokenError("")
-					goto disjunction36Alt2Error
+					goto disjunction39Alt2Error
 				}
 				c.Lex.Next()
 
@@ -208,12 +211,12 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 				// reference <int>
 				if c.Lex.Peek().Type != -3 {
 					c.SetTokenError("<int> <int>* (\"-\" <int>)?")
-					goto disjunction36Alt2Error
+					goto disjunction39Alt2Error
 				}
 				if numValue, err := strconv.ParseInt(c.Lex.Peek().Value, 0, 64); err != nil {
 					c.Lex.Next()
 					c.SetCustomError("Ints.Normal", err)
-					goto disjunction36Alt2Error
+					goto disjunction39Alt2Error
 				} else {
 					vInts.Normal = numValue
 				}
@@ -228,14 +231,14 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 					// reference <int>
 					if c.Lex.Peek().Type != -3 {
 						c.SetTokenError("")
-						goto group222Error
+						goto group225Error
 					}
 					{
 						var sliceItem1 int16
 						if numValue, err := strconv.ParseInt(c.Lex.Peek().Value, 0, 16); err != nil {
 							c.Lex.Next()
 							c.SetCustomError("Ints.Array", err)
-							goto disjunction36Alt2Error
+							goto disjunction39Alt2Error
 						} else {
 							sliceItem1 = int16(numValue)
 						}
@@ -246,13 +249,13 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 					matches += 1
 					if matches >= participle.MaxIterations {
 						c.SetParseError("too many iterations of <int>* (> 10)")
-						goto disjunction36Alt2Error
+						goto disjunction39Alt2Error
 					}
 					vInts.Array = branch_vInts.Array
 					continue
-				group222Error:
+				group225Error:
 					if c.AboveLookahead(branchCheckpoint) {
-						goto disjunction36Alt2Error
+						goto disjunction39Alt2Error
 					}
 					c.Lex.LoadCheckpoint(branchCheckpoint)
 					c.SuppressError()
@@ -271,7 +274,7 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 						// literal "-"
 						if c.Lex.Peek().Value != "-" {
 							c.SetTokenError("")
-							goto group262Error
+							goto group265Error
 						}
 						bufPtr = c.Lex.Peek().Value
 						c.Lex.Next()
@@ -279,7 +282,7 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 						// reference <int>
 						if c.Lex.Peek().Type != -3 {
 							c.SetTokenError("<int>")
-							goto group262Error
+							goto group265Error
 						}
 						bufPtr += c.Lex.Peek().Value
 						c.Lex.Next()
@@ -291,7 +294,7 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 							}
 							if numValue, err := strconv.ParseInt(bufPtr, 0, 8); err != nil {
 								c.SetCustomError("Ints.Ptr", err)
-								goto disjunction36Alt2Error
+								goto disjunction39Alt2Error
 							} else {
 								ptrValue1 = int8(numValue)
 							}
@@ -301,9 +304,9 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 
 					vInts.Ptr = branch_vInts.Ptr
 					break
-				group262Error:
+				group265Error:
 					if c.AboveLookahead(branchCheckpoint) {
-						goto disjunction36Alt2Error
+						goto disjunction39Alt2Error
 					}
 					c.Lex.LoadCheckpoint(branchCheckpoint)
 					c.SuppressError()
@@ -313,10 +316,10 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 				branch_out.Features = append(branch_out.Features, Feature(vInts))
 			}
 
-			goto disjunction36Success
-		disjunction36Alt2Error:
+			goto disjunction39Success
+		disjunction39Alt2Error:
 			if c.AboveLookahead(branchCheckpoint) {
-				goto group29Error
+				goto group32Error
 			}
 			c.Lex.LoadCheckpoint(branchCheckpoint)
 
@@ -328,7 +331,7 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 				// literal "uint"
 				if c.Lex.Peek().Value != "uint" {
 					c.SetTokenError("")
-					goto disjunction36Alt3Error
+					goto disjunction39Alt3Error
 				}
 				c.Lex.Next()
 
@@ -344,15 +347,15 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 						// literal "-"
 						if c.Lex.Peek().Value != "-" {
 							c.SetTokenError("")
-							goto group339Error
+							goto group342Error
 						}
 						bufNormal = c.Lex.Peek().Value
 						c.Lex.Next()
 
 						break
-					group339Error:
+					group342Error:
 						if c.AboveLookahead(branchCheckpoint) {
-							goto disjunction36Alt3Error
+							goto disjunction39Alt3Error
 						}
 						c.Lex.LoadCheckpoint(branchCheckpoint)
 						bufNormal = bufNormalCheckpoint
@@ -363,14 +366,14 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 					// reference <int>
 					if c.Lex.Peek().Type != -3 {
 						c.SetTokenError("<int>")
-						goto disjunction36Alt3Error
+						goto disjunction39Alt3Error
 					}
 					bufNormal += c.Lex.Peek().Value
 					c.Lex.Next()
 
 					if numValue, err := strconv.ParseUint(bufNormal, 0, 64); err != nil {
 						c.SetCustomError("Uints.Normal", err)
-						goto disjunction36Alt3Error
+						goto disjunction39Alt3Error
 					} else {
 						vUints.Normal = uint(numValue)
 					}
@@ -389,7 +392,7 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 						// reference <int>
 						if c.Lex.Peek().Type != -3 {
 							c.SetTokenError("")
-							goto group379Error
+							goto group382Error
 						}
 						bufSmall = c.Lex.Peek().Value
 						c.Lex.Next()
@@ -397,7 +400,7 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 						// reference <int>
 						if c.Lex.Peek().Type != -3 {
 							c.SetTokenError("<int>")
-							goto group379Error
+							goto group382Error
 						}
 						bufSmall += c.Lex.Peek().Value
 						c.Lex.Next()
@@ -409,7 +412,7 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 							}
 							if numValue, err := strconv.ParseUint(bufSmall, 0, 32); err != nil {
 								c.SetCustomError("Uints.Small", err)
-								goto disjunction36Alt3Error
+								goto disjunction39Alt3Error
 							} else {
 								ptrValue1 = uint32(numValue)
 							}
@@ -421,14 +424,14 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 					// reference <int>
 					if c.Lex.Peek().Type != -3 {
 						c.SetTokenError("<int> <int>")
-						goto group379Error
+						goto group382Error
 					}
 					{
 						var sliceItem1 uint64
 						if numValue, err := strconv.ParseUint(c.Lex.Peek().Value, 0, 64); err != nil {
 							c.Lex.Next()
 							c.SetCustomError("Uints.Big", err)
-							goto disjunction36Alt3Error
+							goto disjunction39Alt3Error
 						} else {
 							sliceItem1 = numValue
 						}
@@ -440,14 +443,14 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 					// reference <int>
 					if c.Lex.Peek().Type != -3 {
 						c.SetTokenError("<int>")
-						goto group379Error
+						goto group382Error
 					}
 					{
 						var sliceItem1 uint64
 						if numValue, err := strconv.ParseUint(c.Lex.Peek().Value, 0, 64); err != nil {
 							c.Lex.Next()
 							c.SetCustomError("Uints.Big", err)
-							goto disjunction36Alt3Error
+							goto disjunction39Alt3Error
 						} else {
 							sliceItem1 = numValue
 						}
@@ -458,14 +461,14 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 					matches += 1
 					if matches >= participle.MaxIterations {
 						c.SetParseError("too many iterations of ((<int> <int>) <int> <int>)* (> 10)")
-						goto disjunction36Alt3Error
+						goto disjunction39Alt3Error
 					}
 					vUints.Small = branch_vUints.Small
 					vUints.Big = branch_vUints.Big
 					continue
-				group379Error:
+				group382Error:
 					if c.AboveLookahead(branchCheckpoint) {
-						goto disjunction36Alt3Error
+						goto disjunction39Alt3Error
 					}
 					c.Lex.LoadCheckpoint(branchCheckpoint)
 					c.SuppressError()
@@ -475,10 +478,10 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 				branch_out.Features = append(branch_out.Features, Feature(vUints))
 			}
 
-			goto disjunction36Success
-		disjunction36Alt3Error:
+			goto disjunction39Success
+		disjunction39Alt3Error:
 			if c.AboveLookahead(branchCheckpoint) {
-				goto group29Error
+				goto group32Error
 			}
 			c.Lex.LoadCheckpoint(branchCheckpoint)
 
@@ -490,7 +493,7 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 				// literal "float"
 				if c.Lex.Peek().Value != "float" {
 					c.SetTokenError("")
-					goto disjunction36Alt4Error
+					goto disjunction39Alt4Error
 				}
 				c.Lex.Next()
 
@@ -501,7 +504,7 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 					// reference <int>
 					if c.Lex.Peek().Type != -3 {
 						c.SetTokenError("(<int> (\".\" <int>)?) (<float> | <int>)?")
-						goto disjunction36Alt4Error
+						goto disjunction39Alt4Error
 					}
 					bufA = c.Lex.Peek().Value
 					c.Lex.Next()
@@ -516,7 +519,7 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 						// literal "."
 						if c.Lex.Peek().Value != "." {
 							c.SetTokenError("")
-							goto group509Error
+							goto group512Error
 						}
 						bufA += c.Lex.Peek().Value
 						c.Lex.Next()
@@ -524,16 +527,16 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 						// reference <int>
 						if c.Lex.Peek().Type != -3 {
 							c.SetTokenError("<int>")
-							goto group509Error
+							goto group512Error
 						}
 						bufA += c.Lex.Peek().Value
 						c.Lex.Next()
 
 						_ = branch_vFloats
 						break
-					group509Error:
+					group512Error:
 						if c.AboveLookahead(branchCheckpoint) {
-							goto disjunction36Alt4Error
+							goto disjunction39Alt4Error
 						}
 						c.Lex.LoadCheckpoint(branchCheckpoint)
 						bufA = bufACheckpoint
@@ -548,7 +551,7 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 						}
 						if numValue, err := strconv.ParseFloat(bufA, 64); err != nil {
 							c.SetCustomError("Floats.A", err)
-							goto disjunction36Alt4Error
+							goto disjunction39Alt4Error
 						} else {
 							ptrValue1 = numValue
 						}
@@ -571,40 +574,40 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 							// reference <float>
 							if c.Lex.Peek().Type != -4 {
 								c.SetTokenError("")
-								goto disjunction567Alt0Error
+								goto disjunction570Alt0Error
 							}
 							bufB = c.Lex.Peek().Value
 							c.Lex.Next()
 
-							goto disjunction567Success
-						disjunction567Alt0Error:
+							goto disjunction570Success
+						disjunction570Alt0Error:
 							if c.AboveLookahead(branchCheckpoint) {
-								goto group559Error
+								goto group562Error
 							}
 							c.Lex.LoadCheckpoint(branchCheckpoint)
 
 							// reference <int>
 							if c.Lex.Peek().Type != -3 {
 								c.SetTokenError("")
-								goto disjunction567Alt1Error
+								goto disjunction570Alt1Error
 							}
 							bufB += c.Lex.Peek().Value
 							c.Lex.Next()
 
-							goto disjunction567Success
-						disjunction567Alt1Error:
+							goto disjunction570Success
+						disjunction570Alt1Error:
 							if c.AboveLookahead(branchCheckpoint) {
-								goto group559Error
+								goto group562Error
 							}
 							c.Lex.LoadCheckpoint(branchCheckpoint)
-							goto group559Error
+							goto group562Error
 						}
-					disjunction567Success:
+					disjunction570Success:
 						c.SuppressError()
 
 						if numValue, err := strconv.ParseFloat(bufB, 32); err != nil {
 							c.SetCustomError("Floats.B", err)
-							goto disjunction36Alt4Error
+							goto disjunction39Alt4Error
 						} else {
 							branch_vFloats.B = float32(numValue)
 						}
@@ -612,9 +615,9 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 
 					vFloats.B = branch_vFloats.B
 					break
-				group559Error:
+				group562Error:
 					if c.AboveLookahead(branchCheckpoint) {
-						goto disjunction36Alt4Error
+						goto disjunction39Alt4Error
 					}
 					c.Lex.LoadCheckpoint(branchCheckpoint)
 					c.SuppressError()
@@ -624,10 +627,10 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 				branch_out.Features = append(branch_out.Features, Feature(vFloats))
 			}
 
-			goto disjunction36Success
-		disjunction36Alt4Error:
+			goto disjunction39Success
+		disjunction39Alt4Error:
 			if c.AboveLookahead(branchCheckpoint) {
-				goto group29Error
+				goto group32Error
 			}
 			c.Lex.LoadCheckpoint(branchCheckpoint)
 
@@ -639,7 +642,7 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 				// literal "struct"
 				if c.Lex.Peek().Value != "struct" {
 					c.SetTokenError("")
-					goto disjunction36Alt5Error
+					goto disjunction39Alt5Error
 				}
 				c.Lex.Next()
 
@@ -650,7 +653,7 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 					c.parseRoot(&vRoot)
 					if c.HasErr() {
 						c.AddTokenErrorExpected("Root Rec+ (\"[\" Root (\",\" Root)* \"]\")?")
-						goto disjunction36Alt5Error
+						goto disjunction39Alt5Error
 					}
 					vStructs.Normal = vRoot
 				}
@@ -666,7 +669,7 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 						var vRec Rec
 						c.parseRec(&vRec)
 						if c.HasErr() {
-							goto group658Error
+							goto group661Error
 						}
 						branch_vStructs.Array = append(branch_vStructs.Array, vRec)
 					}
@@ -674,19 +677,19 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 					matches += 1
 					if matches >= participle.MaxIterations {
 						c.SetParseError("too many iterations of Rec+ (> 10)")
-						goto disjunction36Alt5Error
+						goto disjunction39Alt5Error
 					}
 					vStructs.Array = branch_vStructs.Array
 					continue
-				group658Error:
+				group661Error:
 					if c.AboveLookahead(branchCheckpoint) {
-						goto disjunction36Alt5Error
+						goto disjunction39Alt5Error
 					}
 					c.Lex.LoadCheckpoint(branchCheckpoint)
 					c.SuppressError()
 					if matches == 0 {
 						c.SetParseError("sub-expression Rec+ must match at least once")
-						goto disjunction36Alt5Error
+						goto disjunction39Alt5Error
 					}
 					break
 				}
@@ -700,7 +703,7 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 					// literal "["
 					if c.Lex.Peek().Value != "[" {
 						c.SetTokenError("")
-						goto group694Error
+						goto group697Error
 					}
 					c.Lex.Next()
 
@@ -711,7 +714,7 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 						c.parseRoot(&vRoot)
 						if c.HasErr() {
 							c.AddTokenErrorExpected("Root (\",\" Root)* \"]\"")
-							goto group694Error
+							goto group697Error
 						}
 						branch_vStructs.PtrArray = append(branch_vStructs.PtrArray, &vRoot)
 					}
@@ -724,7 +727,7 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 						// literal ","
 						if c.Lex.Peek().Value != "," {
 							c.SetTokenError("")
-							goto group719Error
+							goto group722Error
 						}
 						c.Lex.Next()
 
@@ -735,7 +738,7 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 							c.parseRoot(&vRoot)
 							if c.HasErr() {
 								c.AddTokenErrorExpected("Root")
-								goto group719Error
+								goto group722Error
 							}
 							branch_vStructs.PtrArray = append(branch_vStructs.PtrArray, &vRoot)
 						}
@@ -743,12 +746,12 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 						matches += 1
 						if matches >= participle.MaxIterations {
 							c.SetParseError("too many iterations of (\",\" Root)* (> 10)")
-							goto group694Error
+							goto group697Error
 						}
 						continue
-					group719Error:
+					group722Error:
 						if c.AboveLookahead(branchCheckpoint) {
-							goto group694Error
+							goto group697Error
 						}
 						c.Lex.LoadCheckpoint(branchCheckpoint)
 						c.SuppressError()
@@ -758,15 +761,15 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 					// literal "]"
 					if c.Lex.Peek().Value != "]" {
 						c.SetTokenError("\"]\"")
-						goto group694Error
+						goto group697Error
 					}
 					c.Lex.Next()
 
 					vStructs.PtrArray = branch_vStructs.PtrArray
 					break
-				group694Error:
+				group697Error:
 					if c.AboveLookahead(branchCheckpoint) {
-						goto disjunction36Alt5Error
+						goto disjunction39Alt5Error
 					}
 					c.Lex.LoadCheckpoint(branchCheckpoint)
 					c.SuppressError()
@@ -776,10 +779,10 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 				branch_out.Features = append(branch_out.Features, Feature(vStructs))
 			}
 
-			goto disjunction36Success
-		disjunction36Alt5Error:
+			goto disjunction39Success
+		disjunction39Alt5Error:
 			if c.AboveLookahead(branchCheckpoint) {
-				goto group29Error
+				goto group32Error
 			}
 			c.Lex.LoadCheckpoint(branchCheckpoint)
 
@@ -791,7 +794,7 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 				// literal "negation"
 				if c.Lex.Peek().Value != "negation" {
 					c.SetTokenError("")
-					goto disjunction36Alt6Error
+					goto disjunction39Alt6Error
 				}
 				c.Lex.Next()
 
@@ -803,7 +806,7 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 					// capture Trash from ~(<ident> | ("." "." "." "."+) | "42")
 					// negation ~(<ident> | ("." "." "." "."+) | "42")
 					if c.Lex.Peek().EOF() {
-						goto group798Error
+						goto group801Error
 					}
 					{
 						branchCheckpoint := c.Lex.MakeCheckpoint()
@@ -814,14 +817,14 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 							// reference <ident>
 							if c.Lex.Peek().Type != -2 {
 								c.SetTokenError("")
-								goto disjunction810Alt0Error
+								goto disjunction813Alt0Error
 							}
 							c.Lex.Next()
 
-							goto disjunction810Success
-						disjunction810Alt0Error:
+							goto disjunction813Success
+						disjunction813Alt0Error:
 							if c.AboveLookahead(branchCheckpoint) {
-								goto negation804Error
+								goto negation807Error
 							}
 							c.Lex.LoadCheckpoint(branchCheckpoint)
 
@@ -829,21 +832,21 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 							// literal "."
 							if c.Lex.Peek().Value != "." {
 								c.SetTokenError("")
-								goto disjunction810Alt1Error
+								goto disjunction813Alt1Error
 							}
 							c.Lex.Next()
 
 							// literal "."
 							if c.Lex.Peek().Value != "." {
 								c.SetTokenError("\".\" \".\" \".\"+")
-								goto disjunction810Alt1Error
+								goto disjunction813Alt1Error
 							}
 							c.Lex.Next()
 
 							// literal "."
 							if c.Lex.Peek().Value != "." {
 								c.SetTokenError("\".\" \".\"+")
-								goto disjunction810Alt1Error
+								goto disjunction813Alt1Error
 							}
 							c.Lex.Next()
 
@@ -854,59 +857,59 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 								// literal "."
 								if c.Lex.Peek().Value != "." {
 									c.SetTokenError("")
-									goto group850Error
+									goto group853Error
 								}
 								c.Lex.Next()
 
 								matches += 1
 								if matches >= participle.MaxIterations {
 									c.SetParseError("too many iterations of \".\"+ (> 10)")
-									goto disjunction810Alt1Error
+									goto disjunction813Alt1Error
 								}
 								continue
-							group850Error:
+							group853Error:
 								if c.AboveLookahead(branchCheckpoint) {
-									goto disjunction810Alt1Error
+									goto disjunction813Alt1Error
 								}
 								c.Lex.LoadCheckpoint(branchCheckpoint)
 								c.SuppressError()
 								if matches == 0 {
 									c.SetParseError("sub-expression \".\"+ must match at least once")
-									goto disjunction810Alt1Error
+									goto disjunction813Alt1Error
 								}
 								break
 							}
 
-							goto disjunction810Success
-						disjunction810Alt1Error:
+							goto disjunction813Success
+						disjunction813Alt1Error:
 							if c.AboveLookahead(branchCheckpoint) {
-								goto negation804Error
+								goto negation807Error
 							}
 							c.Lex.LoadCheckpoint(branchCheckpoint)
 
 							// literal "42"
 							if c.Lex.Peek().Value != "42" {
 								c.SetTokenError("")
-								goto disjunction810Alt2Error
+								goto disjunction813Alt2Error
 							}
 							c.Lex.Next()
 
-							goto disjunction810Success
-						disjunction810Alt2Error:
+							goto disjunction813Success
+						disjunction813Alt2Error:
 							if c.AboveLookahead(branchCheckpoint) {
-								goto negation804Error
+								goto negation807Error
 							}
 							c.Lex.LoadCheckpoint(branchCheckpoint)
-							goto negation804Error
+							goto negation807Error
 						}
-					disjunction810Success:
+					disjunction813Success:
 						c.SuppressError()
 
 						c.Lex.LoadCheckpoint(branchCheckpoint)
 						c.ResetError()
 						c.SetTokenError("")
-						goto group798Error
-					negation804Error:
+						goto group801Error
+					negation807Error:
 						c.Lex.LoadCheckpoint(branchCheckpoint)
 						c.ResetError()
 						{
@@ -920,13 +923,13 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 					matches += 1
 					if matches >= participle.MaxIterations {
 						c.SetParseError("too many iterations of ~(<ident> | (\".\" \".\" \".\" \".\"+) | \"42\")* (> 10)")
-						goto disjunction36Alt6Error
+						goto disjunction39Alt6Error
 					}
 					vNegation.Trash = branch_vNegation.Trash
 					continue
-				group798Error:
+				group801Error:
 					if c.AboveLookahead(branchCheckpoint) {
-						goto disjunction36Alt6Error
+						goto disjunction39Alt6Error
 					}
 					c.Lex.LoadCheckpoint(branchCheckpoint)
 					c.SuppressError()
@@ -942,12 +945,12 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 					// reference <int>
 					if c.Lex.Peek().Type != -3 {
 						c.SetTokenError("")
-						goto group936Error
+						goto group939Error
 					}
 					if numValue, err := strconv.ParseInt(c.Lex.Peek().Value, 0, 64); err != nil {
 						c.Lex.Next()
 						c.SetCustomError("Negation.Answer", err)
-						goto disjunction36Alt6Error
+						goto disjunction39Alt6Error
 					} else {
 						branch_vNegation.Answer = int(numValue)
 					}
@@ -955,9 +958,9 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 
 					vNegation.Answer = branch_vNegation.Answer
 					break
-				group936Error:
+				group939Error:
 					if c.AboveLookahead(branchCheckpoint) {
-						goto disjunction36Alt6Error
+						goto disjunction39Alt6Error
 					}
 					c.Lex.LoadCheckpoint(branchCheckpoint)
 					c.SuppressError()
@@ -967,10 +970,10 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 				branch_out.Features = append(branch_out.Features, Feature(vNegation))
 			}
 
-			goto disjunction36Success
-		disjunction36Alt6Error:
+			goto disjunction39Success
+		disjunction39Alt6Error:
 			if c.AboveLookahead(branchCheckpoint) {
-				goto group29Error
+				goto group32Error
 			}
 			c.Lex.LoadCheckpoint(branchCheckpoint)
 
@@ -982,7 +985,7 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 				// literal "custom"
 				if c.Lex.Peek().Value != "custom" {
 					c.SetTokenError("")
-					goto disjunction36Alt7Error
+					goto disjunction39Alt7Error
 				}
 				c.Lex.Next()
 
@@ -998,26 +1001,26 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 						vCustomContent := customResult.(CustomContent)
 						branch_vCustom.Opt = vCustomContent
 					} else {
-						goto group989Error
+						goto group992Error
 					}
 
 					// literal "-"
 					if c.Lex.Peek().Value != "-" {
 						c.SetTokenError("\"-\"")
-						goto group989Error
+						goto group992Error
 					}
 					c.Lex.Next()
 
 					matches += 1
 					if matches >= participle.MaxIterations {
 						c.SetParseError("too many iterations of (CustomContent \"-\")* (> 10)")
-						goto disjunction36Alt7Error
+						goto disjunction39Alt7Error
 					}
 					vCustom.Opt = branch_vCustom.Opt
 					continue
-				group989Error:
+				group992Error:
 					if c.AboveLookahead(branchCheckpoint) {
-						goto disjunction36Alt7Error
+						goto disjunction39Alt7Error
 					}
 					c.Lex.LoadCheckpoint(branchCheckpoint)
 					c.SuppressError()
@@ -1030,38 +1033,38 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 					vCustomContent := customResult.(CustomContent)
 					vCustom.Req = vCustomContent
 				} else {
-					goto disjunction36Alt7Error
+					goto disjunction39Alt7Error
 				}
 
 				branch_out.Features = append(branch_out.Features, Feature(vCustom))
 			}
 
-			goto disjunction36Success
-		disjunction36Alt7Error:
+			goto disjunction39Success
+		disjunction39Alt7Error:
 			if c.AboveLookahead(branchCheckpoint) {
-				goto group29Error
+				goto group32Error
 			}
 			c.Lex.LoadCheckpoint(branchCheckpoint)
 
 			// parseable testgen.Parseable
 			var vParseable Parseable
 			if err := vParseable.Parse(c.Lex); err == participle.NextMatch {
-				goto disjunction36Alt8Error
+				goto disjunction39Alt8Error
 			} else if err != nil {
 				c.SetCustomError("", err)
-				goto disjunction36Alt8Error
+				goto disjunction39Alt8Error
 			}
 			branch_out.Features = append(branch_out.Features, Feature(vParseable))
 
-			goto disjunction36Success
-		disjunction36Alt8Error:
+			goto disjunction39Success
+		disjunction39Alt8Error:
 			if c.AboveLookahead(branchCheckpoint) {
-				goto group29Error
+				goto group32Error
 			}
 			c.Lex.LoadCheckpoint(branchCheckpoint)
-			goto group29Error
+			goto group32Error
 		}
-	disjunction36Success:
+	disjunction39Success:
 		c.SuppressError()
 
 		matches += 1
@@ -1071,7 +1074,7 @@ func (c *combinedGeneratorContext) parseCombined(out *Combined) {
 		}
 		out.Features = branch_out.Features
 		continue
-	group29Error:
+	group32Error:
 		if c.AboveLookahead(branchCheckpoint) {
 			goto strctCombined26Error
 		}
@@ -1094,18 +1097,21 @@ func (_ combinedGenerator) ParseRoot(ctx participle.GeneratedParserContext, out 
 }
 
 func (c *combinedGeneratorContext) parseRoot(out *Root) {
+	if c.OverTokenReadLimit() {
+		goto strctRoot1099Error
+	}
 	c.SuppressError()
 
 	// capture Str from <ident>
 	// reference <ident>
 	if c.Lex.Peek().Type != -2 {
 		c.SetTokenError("")
-		goto strctRoot1096Error
+		goto strctRoot1099Error
 	}
 	c.AddToString(&out.Str, c.Lex.Peek().Value)
 	c.Lex.Next()
 
-strctRoot1096Error:
+strctRoot1099Error:
 }
 
 func (_ combinedGenerator) ParseRec(ctx participle.GeneratedParserContext, out interface{}) error {
@@ -1115,6 +1121,9 @@ func (_ combinedGenerator) ParseRec(ctx participle.GeneratedParserContext, out i
 }
 
 func (c *combinedGeneratorContext) parseRec(out *Rec) {
+	if c.OverTokenReadLimit() {
+		goto strctRec1123Error
+	}
 	c.SuppressError()
 
 	// disjunction Root | ("{" Rec "}")
@@ -1127,15 +1136,15 @@ func (c *combinedGeneratorContext) parseRec(out *Rec) {
 			var vRoot Root
 			c.parseRoot(&vRoot)
 			if c.HasErr() {
-				goto disjunction1120Alt0Error
+				goto disjunction1129Alt0Error
 			}
 			out.Root = vRoot
 		}
 
-		goto disjunction1120Success
-	disjunction1120Alt0Error:
+		goto disjunction1129Success
+	disjunction1129Alt0Error:
 		if c.AboveLookahead(branchCheckpoint) {
-			goto strctRec1117Error
+			goto strctRec1123Error
 		}
 		c.Lex.LoadCheckpoint(branchCheckpoint)
 
@@ -1143,7 +1152,7 @@ func (c *combinedGeneratorContext) parseRec(out *Rec) {
 		// literal "{"
 		if c.Lex.Peek().Value != "{" {
 			c.SetTokenError("")
-			goto disjunction1120Alt1Error
+			goto disjunction1129Alt1Error
 		}
 		c.Lex.Next()
 
@@ -1154,7 +1163,7 @@ func (c *combinedGeneratorContext) parseRec(out *Rec) {
 			c.parseRec(&vRec)
 			if c.HasErr() {
 				c.AddTokenErrorExpected("Rec \"}\"")
-				goto disjunction1120Alt1Error
+				goto disjunction1129Alt1Error
 			}
 			out.In = &vRec
 		}
@@ -1162,22 +1171,22 @@ func (c *combinedGeneratorContext) parseRec(out *Rec) {
 		// literal "}"
 		if c.Lex.Peek().Value != "}" {
 			c.SetTokenError("\"}\"")
-			goto disjunction1120Alt1Error
+			goto disjunction1129Alt1Error
 		}
 		c.Lex.Next()
 
-		goto disjunction1120Success
-	disjunction1120Alt1Error:
+		goto disjunction1129Success
+	disjunction1129Alt1Error:
 		if c.AboveLookahead(branchCheckpoint) {
-			goto strctRec1117Error
+			goto strctRec1123Error
 		}
 		c.Lex.LoadCheckpoint(branchCheckpoint)
-		goto strctRec1117Error
+		goto strctRec1123Error
 	}
-disjunction1120Success:
+disjunction1129Success:
 	c.SuppressError()
 
-strctRec1117Error:
+strctRec1123Error:
 }
 
 // GeneratedParsers exposes non-inlined methods for sub-parsing.

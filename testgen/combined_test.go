@@ -1,6 +1,7 @@
 package testgen
 
 import (
+	"errors"
 	"runtime"
 	"strings"
 	"testing"
@@ -15,7 +16,8 @@ import (
 // Any changes to the committed parser code should be inspected for correctness (tests below help) and committed.
 func TestGenerateCombinedParser(t *testing.T) {
 	defer patchMaxIterations()()
-	participle.MustGenerateParserFile[combinedGenerator](combinedParser, "combined_gen.go", 0664)
+	participle.MustGenerateParserFile[combinedGenerator](combinedParser, "combined_gen.go", 0664,
+		participle.GenerateTokenReadLimitChecks())
 }
 
 // TODO: struct positions & tokens, non-empty group, lookahead group, literal switch
@@ -280,4 +282,38 @@ func TestCombinedParser_LongStringCaptureRun(t *testing.T) {
 	ratio := float64(longBytes) / float64(shortBytes)
 	require.True(t, ratio < 8, "allocated bytes %d for %d tokens, %d for %d tokens (ratio %.1f)",
 		shortBytes, n, longBytes, 4*n, ratio)
+}
+
+// A parse succeeds when its token reads stay within TokenReadLimit and fails with
+// ErrTokenReadLimit one read over it. The production-entry checks stop an over-limit parse early
+// instead of letting it run to the end.
+func TestCombinedParser_TokenReadLimit(t *testing.T) {
+	original := participle.MaxIterations
+	participle.MaxIterations = 1 << 20
+	defer func() { participle.MaxIterations = original }()
+
+	parse := func(in string, options ...participle.ParseOption) (*Combined, int, error) {
+		lexed, err := lexer.TextScannerLexer.Lex("", strings.NewReader(in))
+		require.NoError(t, err)
+		peeking, err := lexer.Upgrade(lexed)
+		require.NoError(t, err)
+		out, err := combinedParser.ParseFromLexer(peeking, options...)
+		return out, peeking.Reads(), err
+	}
+
+	in := strings.Repeat("struct a {{b}} [c, d] ", 1000)
+	unlimited, reads, err := parse(in)
+	require.NoError(t, err)
+
+	atLimit, atLimitReads, err := parse(in, participle.TokenReadLimit(reads))
+	require.NoError(t, err)
+	require.Equal(t, reads, atLimitReads)
+	require.Equal(t, unlimited, atLimit)
+
+	_, _, err = parse(in, participle.TokenReadLimit(reads-1))
+	require.True(t, errors.Is(err, participle.ErrTokenReadLimit), "error %v", err)
+
+	_, stoppedReads, err := parse(in, participle.TokenReadLimit(reads/100))
+	require.True(t, errors.Is(err, participle.ErrTokenReadLimit), "error %v", err)
+	require.True(t, stoppedReads < reads/50, "stopped after %d of %d reads", stoppedReads, reads)
 }

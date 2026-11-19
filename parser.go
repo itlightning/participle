@@ -173,7 +173,11 @@ func (p *Parser[G]) ParseFromLexer(lex *lexer.PeekingLexer, options ...ParseOpti
 	// If there is a generated parser, use it.
 	if !ctx.skipGenParser && p.typeGenParsers != nil {
 		if genParser := p.typeGenParsers[rv.Type()]; genParser != nil {
-			err := genParser(NewGeneratedParserContext(p, &ctx.PeekingLexer, ctx.allowTrailing), v)
+			genCtx := NewGeneratedParserContext(p, &ctx.PeekingLexer, ctx.allowTrailing)
+			if ctx.tokenReadLimit > 0 {
+				genCtx.readLimit = ctx.PeekingLexer.Reads() + ctx.tokenReadLimit
+			}
+			err := genParser(genCtx, v)
 			return v, err
 		} else {
 			return nil, fmt.Errorf("no generated parser for type %v, please regenerate parser code", rv.Type().Elem()) // TODO info how

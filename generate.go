@@ -2,7 +2,9 @@ package participle
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
+	"math"
 	"os"
 	"reflect"
 	"strings"
@@ -31,6 +33,7 @@ type GeneratedParserContext struct {
 	parserOpts    *parserOptions
 	allowTrailing bool
 	concat        *strings.Builder // see AddToString
+	readLimit     int              // see OverTokenReadLimit
 
 	err generatedError
 }
@@ -42,7 +45,26 @@ func NewGeneratedParserContext[G any](
 		Lex:           lex,
 		parserOpts:    &parser.parserOptions,
 		allowTrailing: allowTrailing,
+		readLimit:     math.MaxInt,
 	}
+}
+
+// ErrTokenReadLimit is wrapped by the error a generated parser returns when the parse read more
+// tokens than the TokenReadLimit parse option allows.
+var ErrTokenReadLimit = errors.New("token read limit exceeded")
+
+// OverTokenReadLimit reports whether the parse has read more tokens than TokenReadLimit allows,
+// and sets a parse error when it has. Parsers generated with GenerateTokenReadLimitChecks call it
+// on entry to every production, so once over the limit every production fails at once and the
+// parse unwinds through the ordinary error path. Between two production entries a production
+// only runs its own loops, each of which reads a bounded number of tokens per token consumed, so
+// past the limit the parse reads at most a constant times the remaining input before it stops.
+func (c *GeneratedParserContext) OverTokenReadLimit() bool {
+	if c.Lex.Reads() <= c.readLimit {
+		return false
+	}
+	c.setError(genParseError, ErrTokenReadLimit.Error(), nil)
+	return true
 }
 
 func (c *GeneratedParserContext) AboveLookahead(checkpoint lexer.Checkpoint) bool {
@@ -166,6 +188,11 @@ func (c *GeneratedParserContext) FinalError() error {
 	if !c.HasErr() && !(c.Lex.Peek().EOF() || c.allowTrailing) {
 		c.SetTokenError("")
 	}
+	// Over the limit the parse fails whatever its outcome, so that whether a parse succeeds
+	// depends only on its input and the limit, not on where the last check happened to fall.
+	if c.Lex.Reads() > c.readLimit {
+		return Wrapf(c.Lex.Peek().Pos, ErrTokenReadLimit, "more than %d token reads", c.readLimit)
+	}
 
 	if !c.err.active {
 		return nil
@@ -194,6 +221,7 @@ type codeGenerator struct {
 	packagePrefix    string
 	lookahead        int
 	printAllocations bool
+	readLimitChecks  bool
 
 	out            bytes.Buffer
 	lines          int
@@ -212,14 +240,26 @@ type generatedParserTypeCase struct {
 	method   string
 }
 
-func MustGenerateParserFile[PG GeneratedParser, G any](parser *Parser[G], filename string, perm os.FileMode) {
-	code := GenerateParserCode[PG](parser)
+// GenerateOption modifies the code GenerateParserCode produces.
+type GenerateOption func(g *codeGenerator)
+
+// GenerateTokenReadLimitChecks makes every generated production check the TokenReadLimit parse
+// option on entry (see GeneratedParserContext.OverTokenReadLimit). Without it a parse over the
+// limit still fails, but only once it has finished.
+func GenerateTokenReadLimitChecks() GenerateOption {
+	return func(g *codeGenerator) {
+		g.readLimitChecks = true
+	}
+}
+
+func MustGenerateParserFile[PG GeneratedParser, G any](parser *Parser[G], filename string, perm os.FileMode, opts ...GenerateOption) {
+	code := GenerateParserCode[PG](parser, opts...)
 	if err := os.WriteFile(filename, code, perm); err != nil {
 		panic(err)
 	}
 }
 
-func GenerateParserCode[PG GeneratedParser, G any](parser *Parser[G]) []byte {
+func GenerateParserCode[PG GeneratedParser, G any](parser *Parser[G], opts ...GenerateOption) []byte {
 	generatorType := reflect.TypeOf(*new(PG))
 	rootNode := parser.typeNodes[parser.rootType].(*strct)
 	rootType := rootNode.typ.Name()
@@ -236,6 +276,9 @@ func GenerateParserCode[PG GeneratedParser, G any](parser *Parser[G]) []byte {
 		printAllocations: false,
 
 		structs: map[string]generatedStruct{},
+	}
+	for _, opt := range opts {
+		opt(&gen)
 	}
 	gen.queueGeneratingStruct(rootNode)
 
@@ -292,6 +335,11 @@ func GenerateParserCode[PG GeneratedParser, G any](parser *Parser[G]) []byte {
 		gen.statement(fmt.Sprintf(`func (c *%s) parse%s(out *%s) {`, parserCtxName, normalizedName, qualifiedName))
 		state.errorLabel = gen.newLabel(`strct`+normalizedName, `Error`)
 		gen.indent++
+		if gen.readLimitChecks {
+			gen.statement(`if c.OverTokenReadLimit() {`)
+			gen.gotoLabelIndent(state.errorLabel, 1)
+			gen.statement(`}`)
+		}
 		gen.statement(`c.SuppressError()`)
 		item.node.generateBody(state, &gen)
 		gen.writeLabel(state.errorLabel)

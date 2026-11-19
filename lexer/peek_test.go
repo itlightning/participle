@@ -47,6 +47,29 @@ func TestUpgradePooled(t *testing.T) {
 	require.Equal(t, tokens, l.Range(0, 3))
 }
 
+// Reads counts every Peek and Next, including those undone by LoadCheckpoint, and a pooled lexer
+// starts again from zero.
+func TestPeekingLexerReads(t *testing.T) {
+	tokens := []lexer.Token{{Type: 1, Value: "a"}, {Type: 2, Value: " "}, {Type: 1, Value: "b"}}
+	l, err := lexer.UpgradePooled(&staticLexer{tokens: append([]lexer.Token(nil), tokens...)}, 2)
+	require.NoError(t, err)
+	require.Equal(t, 0, l.Reads())
+	start := l.MakeCheckpoint()
+	l.Peek()
+	l.Next()
+	l.Next()
+	require.Equal(t, 3, l.Reads())
+	l.LoadCheckpoint(start)
+	l.Peek()
+	require.Equal(t, 4, l.Reads())
+	lexer.PutBackPooledPeekingLexer(l)
+
+	l, err = lexer.UpgradePooled(&staticLexer{tokens: append([]lexer.Token(nil), tokens...)}, 2)
+	require.NoError(t, err)
+	require.Equal(t, 0, l.Reads())
+	lexer.PutBackPooledPeekingLexer(l)
+}
+
 func TestPeekingLexer_Peek_Next_Checkpoint(t *testing.T) {
 	slexdef := lexer.MustSimple([]lexer.SimpleRule{
 		{"Ident", `\w+`},

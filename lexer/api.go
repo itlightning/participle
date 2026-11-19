@@ -1,6 +1,7 @@
 package lexer
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -46,6 +47,22 @@ type Lexer interface {
 	// Next consumes and returns the next token.
 	Next() (Token, error)
 }
+
+// WorkLimiter is implemented by lexers generated with work counting (`participle gen lexer
+// --count-work`). Their work is the number of bytes the rule matchers' repetition loops step
+// over, summed over every rule attempt, failed attempts included. One attempt does a bounded
+// amount of work outside its loops, so work plus a constant per token bounds the lexer's cost;
+// a rule that rescans a long run from every token start shows up as work growing faster than
+// the input.
+type WorkLimiter interface {
+	// Work returns the work done so far.
+	Work() int
+	// SetWorkLimit makes Next fail with an error wrapping ErrWorkLimit once the work exceeds n.
+	SetWorkLimit(n int)
+}
+
+// ErrWorkLimit is wrapped by the error a WorkLimiter's Next returns once over its limit.
+var ErrWorkLimit = errors.New("lexer work limit exceeded")
 
 // SymbolsByRune returns a map of lexer symbol names keyed by rune.
 func SymbolsByRune(def Definition) map[TokenType]string {
