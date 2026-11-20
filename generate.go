@@ -50,14 +50,14 @@ func NewGeneratedParserContext[G any](
 // limit set with lexer.PeekingLexer.SetStepLimit.
 var ErrStepLimit = errors.New("parse step limit exceeded")
 
-// OverStepLimit counts entering a grammar struct as one step (see lexer.PeekingLexer.Steps),
+// StepAndCheckLimit counts entering a grammar struct as one step (see lexer.PeekingLexer.Steps),
 // reports whether the lexer is over its step limit, and sets a parse error when it is. Parsers
 // generated with GenerateStepLimitChecks call it on entry to every struct of the grammar, inlined
 // or not, so once over the limit every struct fails at once and the parse unwinds through the
 // ordinary error path. Between two struct entries generated code only matches tokens, each test
 // either consuming its token or ending its loop, so past the limit the parse stops within one run
 // of tokens.
-func (c *GeneratedParserContext) OverStepLimit() bool {
+func (c *GeneratedParserContext) StepAndCheckLimit() bool {
 	if !c.Lex.Step() {
 		return false
 	}
@@ -242,7 +242,7 @@ type generatedParserTypeCase struct {
 type GenerateOption func(g *codeGenerator)
 
 // GenerateStepLimitChecks makes every generated struct count a step and check the lexer's step
-// limit on entry (see GeneratedParserContext.OverStepLimit). Without it a parse counts only
+// limit on entry (see GeneratedParserContext.StepAndCheckLimit). Without it a parse counts only
 // consumed tokens, and a parse over the limit still fails, but only once it has finished.
 func GenerateStepLimitChecks() GenerateOption {
 	return func(g *codeGenerator) {
@@ -334,7 +334,7 @@ func GenerateParserCode[PG GeneratedParser, G any](parser *Parser[G], opts ...Ge
 		state.errorLabel = gen.newLabel(`strct`+normalizedName, `Error`)
 		gen.indent++
 		if gen.stepLimitChecks {
-			gen.statement(`if c.OverStepLimit() {`)
+			gen.statement(`if c.StepAndCheckLimit() {`)
 			gen.gotoLabelIndent(state.errorLabel, 1)
 			gen.statement(`}`)
 		}

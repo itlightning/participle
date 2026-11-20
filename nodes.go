@@ -233,7 +233,7 @@ func (s *strct) Generate(state generatorState, gen *codeGenerator) {
 	} else {
 		// Used only once, inline the body to avoid call overhead
 		if gen.stepLimitChecks && state.errorLabel != nil {
-			gen.statement(`if c.OverStepLimit() {`)
+			gen.statement(`if c.StepAndCheckLimit() {`)
 			gen.gotoLabelIndent(state.errorLabel, 1)
 			gen.statement(`}`)
 		}

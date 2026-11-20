@@ -135,7 +135,8 @@ func (p *PeekingLexer) Step() bool {
 	return p.steps > p.stepLimit
 }
 
-// OverStepLimit reports whether Steps has passed the limit SetStepLimit set.
+// OverStepLimit reports whether Steps has passed the limit SetStepLimit set, without counting
+// a step (Step counts one).
 func (p *PeekingLexer) OverStepLimit() bool {
 	return p.steps > p.stepLimit
 }
