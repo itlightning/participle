@@ -154,9 +154,13 @@ func orderRules(rules lexer.Rules) []orderedRule {
 
 // uncountedLoopSpan is the longest loop span a counting matcher does not add to its work. Short
 // spans are almost every loop on ordinary text (words, whitespace runs), and skipping the memory
-// add for them is most of what keeps counting cheap. Leaving them out keeps the count a bound:
-// one rule attempt runs a fixed number of loops, so the uncounted work per attempt is at most a
-// constant, as the work outside loops already is, and a rescan of a long run is still counted.
+// add for them is most of what keeps counting cheap. Leaving them out keeps the count a bound.
+// The outermost loops of a pattern each run once per rule attempt, and a loop nested inside
+// another steps only over bytes its outer loop steps over, once per level of nesting. So an
+// outermost loop whose span is counted pays for the loops inside it up to the pattern's nesting
+// depth, and one whose span is not counted covers at most uncountedLoopSpan bytes at every
+// level: the uncounted work per attempt is bounded by a constant of the pattern, as the work
+// outside loops already is, and a rescan of a long run is still counted.
 const uncountedLoopSpan = 16
 
 // generateRegexMatch writes the matcher for one rule. With countWork the matcher takes a work
